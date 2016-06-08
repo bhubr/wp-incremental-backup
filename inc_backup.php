@@ -17,6 +17,13 @@ class Md5Walker {
 	}
 
 	/**
+	 * Check if file is a special dir
+	 */
+	private function is_special_dir($object) {
+		return $object->getFilename() === '.' || $object->getFilename() === '..';
+	}
+
+	/**
 	 * Check if file is a regular file
 	 */
 	private function is_regular_file($object) {
@@ -27,7 +34,7 @@ class Md5Walker {
 	/**
 	 * Prepare a CSV line
 	 */
-	private function line($name, $md5) {
+	private function line($name, $md5 = "") {
 		return "\"$name\",\"$md5\"\n";
 	}
 
@@ -39,6 +46,13 @@ class Md5Walker {
 		$md5 = md5_file($name);
 		// echo "$name $md5\n";
 		fwrite($this->fh, $this->line($name, $md5));
+	}
+
+	/**
+	 * Add a file to output
+	 */
+	private function add_dir($name) {
+		fwrite($this->fh, $this->line($name));
 	}
 
 	public function read() {
@@ -63,8 +77,14 @@ class Md5Walker {
 		);
 		foreach($objects as $name => $object){
 			
+			// Skip if this is . or ..
+			if($this->is_special_dir($object)) {
+				continue;
+			}
 
+			// Add dir
 			if(!$this->is_regular_file($object)) {
+				$this->add_dir($name);
 				continue;
 			}
 
