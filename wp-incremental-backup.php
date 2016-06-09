@@ -5,7 +5,7 @@
  * Description: Create incremental backups of WordPress files&db
  * Author: t1z
  * Author URI: https://github.com/t1z
- * Version: 0.2.9
+ * Version: 0.3.0
  *
  * ChangeLog
  * 0.2.0 First public version
@@ -18,6 +18,7 @@
  * 0.2.7 nginx access file fix
  * 0.2.8 insert .sql.zip as media (commented out)
  * 0.2.9 client and server working together
+ * 0.3.0 unlink files after processing
  *
  * Different cases:
  * - upload media
