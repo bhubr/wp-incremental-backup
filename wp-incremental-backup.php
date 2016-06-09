@@ -8,10 +8,11 @@
  * Version: 0.2.3
  *
  * ChangeLog
- * 0.2.0  First public version
- * 0.2.1  Detect server soft
- * 0.2.2  Write .htaccess for Apache
- * 0.2.3  Admin notices & fix indentation
+ * 0.2.0 First public version
+ * 0.2.1 Detect server soft
+ * 0.2.2 Write .htaccess for Apache
+ * 0.2.3 Admin notices & fix indentation
+ * 0.2.4 Admin notices message
  *
  * Different cases:
  * - upload media
@@ -63,6 +64,7 @@ class Md5Walker {
         if (! is_dir($this->output_dir)) {
             $dir_created = mkdir($this->output_dir);
             $notice_func = 'admin_notice__' . ($dir_created ? 'success' : 'error');
+            $this->message = $dir_created ? "output dir {$this->output_dir} created" : "output dir {$this->output_dir} NOT created";
             add_action( 'admin_notices', [$this, $notice_func] );
         }
         if ($this->is_apache() && ! file_exists("{$this->output_dir}/.htaccess")) {
@@ -88,7 +90,7 @@ class Md5Walker {
     public function admin_notice__success() {
         ?>
         <div class="notice notice-success is-dismissible">
-            <p><?php _e( 'Done!', 'sample-text-domain' ); ?></p>
+            <p><?php echo $this->message; ?></p>
         </div>
         <?php
     }
@@ -97,7 +99,7 @@ class Md5Walker {
         $class = 'notice notice-error';
         $message = __( 'Irks! An error has occurred.', 'sample-text-domain' );
 
-        printf( '<div class="%1$s"><p>%2$s</p></div>', $class, $message ); 
+        printf( '<div class="%1$s"><p>%2$s</p></div>', $class, $this->message ); 
     }
 
     public function wpdocs_register_my_custom_submenu_page() {
