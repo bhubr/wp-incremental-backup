@@ -60,7 +60,7 @@ class Md5Walker {
         $this->cnt = 0;
         $this->activation_id = get_option('wpib_activation_id', true);
         $this->walk_dir = get_home_path();
-        $this->output_dir = get_home_path() . "wp-content/wp-incremental-backup-{$this->activation_id}";
+        $this->output_dir = get_home_path() . "wp-content/uploads/wp-incremental-backup-{$this->activation_id}";
         if (! is_dir($this->output_dir)) {
             $dir_created = mkdir($this->output_dir);
             $notice_func = 'admin_notice__' . ($dir_created ? 'success' : 'error');
