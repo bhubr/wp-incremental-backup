@@ -5,7 +5,7 @@
  * Description: Create incremental backups of WordPress files&db
  * Author: t1z
  * Author URI: https://github.com/t1z
- * Version: 0.2.5
+ * Version: 0.2.6
  *
  * ChangeLog
  * 0.2.0 First public version
@@ -14,6 +14,7 @@
  * 0.2.3 Admin notices & fix indentation
  * 0.2.4 Admin notices message
  * 0.2.5 Change output dir location and fix .htaccess writing
+ * 0.2.6 nginx access file
  *
  * Different cases:
  * - upload media
@@ -40,6 +41,7 @@ class Md5Walker {
     private $files;
     private $activation_id;
     private $server_soft;
+    private $access_file;
 
     /**
      * Initialize walk_dir, count, csv file
@@ -54,22 +56,41 @@ class Md5Walker {
         return $this->server_soft === 'Apache';
     }
 
-    public function get_activation_id_and_setup() {
+    private function apache_access_file() {
+        return "{$this->output_dir}/.htaccess";
+    }
+
+    private function is_nginx() {
+        return $this->server_soft === 'nginx';
+    }
+
+    private function nginx_access_file() {
+        return get_home_path() . "wp-content/uploads/wpib-access-nginx";
+    }
+
+    private function setup_server_soft() {
         $server_soft = $_SERVER["SERVER_SOFTWARE"];
         $server_soft_bits = explode('/', $server_soft);
         $this->server_soft = $server_soft_bits[0];
-        $this->cnt = 0;
+    }
+
+    public function get_activation_id_and_setup() {
         $this->activation_id = get_option('wpib_activation_id', true);
+        $this->cnt = 0;
         $this->walk_dir = get_home_path();
         $this->output_dir = get_home_path() . "wp-content/uploads/wp-incremental-backup-{$this->activation_id}";
+        $this->setup_server_soft();
         if (! is_dir($this->output_dir)) {
             $dir_created = mkdir($this->output_dir);
             $notice_func = 'admin_notice__' . ($dir_created ? 'success' : 'error');
             $this->message = $dir_created ? "output dir {$this->output_dir} created" : "output dir {$this->output_dir} NOT created";
             add_action( 'admin_notices', [$this, $notice_func] );
         }
-        if ($this->is_apache() && ! file_exists("{$this->output_dir}/.htaccess")) {
-            file_put_contents("{$this->output_dir}/.htaccess", "Deny from all");
+        if ($this->is_apache() && ! file_exists($this->apache_access_file())) {
+            file_put_contents($this->apache_access_file(), "Deny from all");
+        }
+        else if($this->is_nginx() && ! file_exists($this->nginx_access_file())) {
+            file_put_contents($this->nginx_access_file(), "deny all;");
         }
         $this->output_list_csv = $this->output_dir . "/list.csv";
         $sanitized_blog_name = sanitize_title(get_option('blogname'));
