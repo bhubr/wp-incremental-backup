@@ -5,7 +5,7 @@
  * Description: Create incremental backups of WordPress files&db
  * Author: t1z
  * Author URI: https://github.com/t1z
- * Version: 0.3.0
+ * Version: 0.3.1
  *
  * ChangeLog
  * 0.2.0 First public version
@@ -19,6 +19,7 @@
  * 0.2.8 insert .sql.zip as media (commented out)
  * 0.2.9 client and server working together
  * 0.3.0 unlink files after processing
+ * 0.3.1 allow cleanup of generated files
  *
  * Different cases:
  * - upload media
@@ -136,9 +137,21 @@ class Md5Walker {
             add_management_page( 'Incremental Backup', 'Incremental Backup', 'manage_options', 'incremental-backup', [$this, 'wpib_options_page']);
     }
 
-    public function download_latest() {
+    private function get_output_dir_content() {
         $output_dir_content = scandir($this->output_dir);
         $files = array_slice($output_dir_content, 2);
+        return $files;
+    }
+
+    private function output_dir_content_cleanup() {
+        $files = $this->get_output_dir_content();
+        foreach ($files as $file) {
+            unlink($this->output_dir . '/' . $file);
+        }
+    }
+
+    public function download_latest() {
+        $files = $this->get_output_dir_content();
         $latest = array_pop($files);
         header("Content-type: application/zip"); 
         header("Content-Disposition: attachment; filename=$latest");
@@ -151,6 +164,9 @@ class Md5Walker {
     }
 
     public function wpib_options_page() {
+        if(isset($_GET['do_cleanup'])) {
+            $this->output_dir_content_cleanup();
+        }
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $this->walk();
             try {
@@ -210,8 +226,7 @@ class Md5Walker {
             }
         }
 
-        $output_dir_content = scandir($this->output_dir);
-        $files = array_slice($output_dir_content, 2);
+        $files = $this->get_output_dir_content();
 
         include 'run_form.php';
     }
