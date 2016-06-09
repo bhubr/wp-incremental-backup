@@ -43,6 +43,16 @@ class Md5Walker {
 		else {
 			$this->read();
 		}
+
+		add_action('admin_menu', [$this, 'wpdocs_register_my_custom_submenu_page']);
+ 
+	}
+	public function wpdocs_register_my_custom_submenu_page() {
+			add_management_page( 'Incremental Backup', 'Incremental Backup', 'manage_options', 'incremental-backup', [$this, 'wpib_options_page']);
+	}
+
+	public function wpib_options_page() {
+		echo "<h2>hi there</h2>";
 	}
 
 	/**
@@ -224,4 +234,4 @@ $args = !isset($argv) ? [ 'root' => $_GET['root'], 'domain' => $_GET['domain'] ]
 
 $walker = new Md5Walker($args['root'], $args['domain']);
 
-$walker->walk();
+// $walker->walk();
