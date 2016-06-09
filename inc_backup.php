@@ -1,11 +1,22 @@
 <?php
-
-function regexize_path($path) {
-	return '.*' . preg_quote($path, '/') . '.*';
-}
-
+/**
+ * Plugin Name: WP Incremental Backup
+ * Plugin URI: https://github.com/t1z/wpib
+ * Description: Create incremental backups of WordPress files&db
+ * Author: t1z
+ * Author URI: https://github.com/t1z
+ * Version: 0.1
+ *
+ * Different cases:
+ * - upload media
+ * - delete media
+ * - add plugin
+ * - delete plugin
+ * - add theme
+ * - delete theme
+ * - edit plugin/theme file
+ */
 define('FILES_TO_DELETE', '__deleted_files__.txt');
-// define('ARCHIVE_NAME', '__deleted_files__.txt');
 
 class Md5Walker {
 
@@ -45,7 +56,6 @@ class Md5Walker {
 	 * Check if file is a regular file
 	 */
 	private function is_regular_file($object) {
-		// return $object->getFilename() !== '.' && $object->getFilename() !== '..';
 		return !is_dir($object->getPathname());
 	}
 
@@ -74,6 +84,9 @@ class Md5Walker {
 		fwrite($this->fh, $this->line($name));
 	}
 
+	/**
+	 * Read last file list
+	 */
 	public function read() {
 		$this->fh = fopen($this->output_list_csv, "r");
 		do {
@@ -86,13 +99,18 @@ class Md5Walker {
 			$md5 = $line_read[1];
 			$this->files[$name] = $md5;
 		} while($line_read !== false);
-		// echo "end of file\n";
 	}
 
+	/**
+	 * Get md5 from existing file
+	 */
 	private function get_md5($name) {
 		return $this->files[$name];
 	}
 
+	/**
+	 * Get filename, stripped from root dir (wp installation base dir)
+	 */
 	private function filename_from_root($filename) {
 		$prefix_len = strlen($this->walk_dir);
 		$last_char = $this->walk_dir[$prefix_len - 1];
@@ -100,6 +118,9 @@ class Md5Walker {
 		return substr($filename, $prefix_len);
 	}
 
+	/**
+	 * Write files to delete list
+	 */
 	private function write_files_to_delete($files_to_delete) {
 		$dest = $this->walk_dir . DIRECTORY_SEPARATOR . FILES_TO_DELETE;
 		$fh = fopen($dest, 'w');
@@ -112,6 +133,9 @@ class Md5Walker {
 		return $num_to_delete > 0 ? $dest : "";
 	}
 
+	/**
+	 * Write archive
+	 */
 	private function write_archive($files_to_archive) {
 		$args = "";
 		foreach($files_to_archive as $filename) {
@@ -126,6 +150,9 @@ class Md5Walker {
 		shell_exec($cmd);
 	}
 
+	/**
+	 * Recurse wp installation
+	 */
 	public function walk() {
 		$found_in_dirs = [];
 		$files_to_archive = [];
@@ -198,4 +225,3 @@ $args = !isset($argv) ? [ 'root' => $_GET['root'], 'domain' => $_GET['domain'] ]
 $walker = new Md5Walker($args['root'], $args['domain']);
 
 $walker->walk();
-// $walker->read();
