@@ -5,12 +5,14 @@ function regexize_path($path) {
 }
 
 define('FILES_TO_DELETE', '__deleted_files__.txt');
+// define('ARCHIVE_NAME', '__deleted_files__.txt');
 
 class Md5Walker {
 
 	private $walk_dir;
 	private $cnt;
-	private $output_file;
+	private $output_list_csv;
+	private $output_archive;
 	private $output_dir = __DIR__;
 	private $first_run;
 	private $files;
@@ -18,11 +20,12 @@ class Md5Walker {
 	/**
 	 * Initialize walk_dir, count, csv file
 	 */	
-	public function __construct($walk_dir) {
+	public function __construct($walk_dir, $domain) {
 		$this->walk_dir = $walk_dir;
 		$this->cnt = 0;
-		$this->output_file = __DIR__ . "/list.csv";
-		$this->first_run = !file_exists($this->output_file);
+		$this->output_list_csv = __DIR__ . "/list.csv";
+		$this->output_archive = $domain . '_' . date("Ymd-Hi") . '.tar.bz2';
+		$this->first_run = !file_exists($this->output_list_csv);
 		if ($this->first_run) {
 			$this->files = [];
 		}
@@ -72,7 +75,7 @@ class Md5Walker {
 	}
 
 	public function read() {
-		$this->fh = fopen($this->output_file, "r");
+		$this->fh = fopen($this->output_list_csv, "r");
 		do {
 			$line_read = fgetcsv($this->fh);
 			if (is_null($line_read)) {
@@ -106,17 +109,25 @@ class Md5Walker {
 		$prefix_len = strlen($this->walk_dir);
 		$last_char = $this->walk_dir[$prefix_len - 1];
 		$prefix_len += ($last_char === '/') ? 0 : 1;
-		echo "$prefix_len $last_char\n";
+
+		$args = "";
 		foreach($files_to_archive as $file) {
-			echo substr($file, $prefix_len);
+			$args .= ' ' . substr($file, $prefix_len);
 		}
+		if (empty($args)) {
+			echo "no archive to create\n";
+			return;
+		}
+		$cmd = "cd {$this->walk_dir}; tar cvjf ../{$this->output_archive}{$args}";
+		echo $cmd;
+		shell_exec($cmd);
 	}
 
 	public function walk() {
 		$found_in_dirs = [];
 		$files_to_archive = [];
 		$files_to_delete = [];
-		$this->fh = fopen($this->output_file, "w");
+		$this->fh = fopen($this->output_list_csv, "w");
 
 		$objects = new RecursiveIteratorIterator(
 			new RecursiveDirectoryIterator($this->walk_dir),
@@ -178,10 +189,10 @@ class Md5Walker {
 	}
 }
 
-$args = !isset($argv) ? [ 'root' => $_GET['root'] ] :
-	[ 'root' => $argv[1] ];
+$args = !isset($argv) ? [ 'root' => $_GET['root'], 'domain' => $_GET['domain'] ] :
+	[ 'root' => $argv[1], 'domain' => $argv[2] ];
 
-$walker = new Md5Walker($args['root']);
+$walker = new Md5Walker($args['root'], $args['domain']);
 
 $walker->walk();
 // $walker->read();
