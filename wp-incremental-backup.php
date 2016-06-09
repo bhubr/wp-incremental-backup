@@ -5,7 +5,7 @@
  * Description: Create incremental backups of WordPress files&db
  * Author: t1z
  * Author URI: https://github.com/t1z
- * Version: 0.2.6
+ * Version: 0.2.7
  *
  * ChangeLog
  * 0.2.0 First public version
@@ -15,6 +15,7 @@
  * 0.2.4 Admin notices message
  * 0.2.5 Change output dir location and fix .htaccess writing
  * 0.2.6 nginx access file
+ * 0.2.7 nginx access file fix
  *
  * Different cases:
  * - upload media
@@ -90,7 +91,8 @@ class Md5Walker {
             file_put_contents($this->apache_access_file(), "Deny from all");
         }
         else if($this->is_nginx() && ! file_exists($this->nginx_access_file())) {
-            file_put_contents($this->nginx_access_file(), "deny all;");
+            $location = "/wp-content/uploads/wp-incremental-backup-{$this->activation_id}";
+            file_put_contents($this->nginx_access_file(), "    location $location {\n        deny all;\n    }\n");
         }
         $this->output_list_csv = $this->output_dir . "/list.csv";
         $sanitized_blog_name = sanitize_title(get_option('blogname'));
