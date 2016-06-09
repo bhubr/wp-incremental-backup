@@ -20,6 +20,7 @@
  * 0.2.9 client and server working together
  * 0.3.0 unlink files after processing
  * 0.3.1 allow cleanup of generated files
+ * 0.3.2 comment out attachment creation
  *
  * Different cases:
  * - upload media
@@ -193,33 +194,33 @@ class Md5Walker {
                     unlink("{$this->output_prefix}.tar");
                 }
 
-                // The ID of the post this attachment is for.
-                $parent_post_id = 0;
+                // // The ID of the post this attachment is for.
+                // $parent_post_id = 0;
 
-                // Check the type of file. We'll use this as the 'post_mime_type'.
-                $filetype = wp_check_filetype( basename( $filename ), null );
+                // // Check the type of file. We'll use this as the 'post_mime_type'.
+                // $filetype = wp_check_filetype( basename( $filename ), null );
 
-                // Get the path to the upload directory.
-                $wp_upload_dir = wp_upload_dir();
+                // // Get the path to the upload directory.
+                // $wp_upload_dir = wp_upload_dir();
 
-                // Prepare an array of post data for the attachment.
-                $attachment = array(
-                    'guid'           => $wp_upload_dir['url'] . '/' . basename( $filename ), 
-                    'post_mime_type' => $filetype['type'],
-                    'post_title'     => preg_replace( '/\.[^.]+$/', '', basename( $filename ) ),
-                    'post_content'   => '',
-                    'post_status'    => 'inherit'
-                );
+                // // Prepare an array of post data for the attachment.
+                // $attachment = array(
+                //     'guid'           => $wp_upload_dir['url'] . '/' . basename( $filename ), 
+                //     'post_mime_type' => $filetype['type'],
+                //     'post_title'     => preg_replace( '/\.[^.]+$/', '', basename( $filename ) ),
+                //     'post_content'   => '',
+                //     'post_status'    => 'inherit'
+                // );
 
-                // Insert the attachment.
-                $attach_id = wp_insert_attachment( $attachment, $filename, $parent_post_id );
+                // // Insert the attachment.
+                // $attach_id = wp_insert_attachment( $attachment, $filename, $parent_post_id );
 
-                // Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
-                require_once( ABSPATH . 'wp-admin/includes/image.php' );
+                // // Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
+                // require_once( ABSPATH . 'wp-admin/includes/image.php' );
 
-                // Generate the metadata for the attachment, and update the database record.
-                $attach_data = wp_generate_attachment_metadata( $attach_id, $filename );
-                wp_update_attachment_metadata( $attach_id, $attach_data );
+                // // Generate the metadata for the attachment, and update the database record.
+                // $attach_data = wp_generate_attachment_metadata( $attach_id, $filename );
+                // wp_update_attachment_metadata( $attach_id, $attach_data );
 
             } catch (\Exception $e) {
                 echo 'mysqldump-php error: ' . $e->getMessage();
