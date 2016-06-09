@@ -93,26 +93,29 @@ class Md5Walker {
 		return $this->files[$name];
 	}
 
+	private function filename_from_root($filename) {
+		$prefix_len = strlen($this->walk_dir);
+		$last_char = $this->walk_dir[$prefix_len - 1];
+		$prefix_len += ($last_char === '/') ? 0 : 1;
+		return substr($filename, $prefix_len);
+	}
+
 	private function write_files_to_delete($files_to_delete) {
 		$dest = $this->walk_dir . DIRECTORY_SEPARATOR . FILES_TO_DELETE;
 		$fh = fopen($dest, 'w');
 		$num_to_delete = count($files_to_delete);
 		for($i = 0 ; $i < $num_to_delete ; $i++) {
-		 	$name = $files_to_delete[$i];
+		 	$filename = $this->filename_from_root($files_to_delete[$i]);
 		 	$not_last = $i < $num_to_delete - 1;
-			fwrite($fh, $name . ($not_last ? "\n" : ""));
+			fwrite($fh, $filename . ($not_last ? "\n" : ""));
 		}
 		return $num_to_delete > 0 ? $dest : "";
 	}
 
 	private function write_archive($files_to_archive) {
-		$prefix_len = strlen($this->walk_dir);
-		$last_char = $this->walk_dir[$prefix_len - 1];
-		$prefix_len += ($last_char === '/') ? 0 : 1;
-
 		$args = "";
-		foreach($files_to_archive as $file) {
-			$args .= ' ' . substr($file, $prefix_len);
+		foreach($files_to_archive as $filename) {
+			$args .= ' ' . $this->filename_from_root($filename);
 		}
 		if (empty($args)) {
 			echo "no archive to create\n";
