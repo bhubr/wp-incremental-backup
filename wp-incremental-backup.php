@@ -38,6 +38,7 @@ class Md5Walker {
     private $cnt;
     private $output_list_csv;
     private $output_prefix;
+    private $output_file;
     private $output_dir;
     private $first_run;
     private $files;
@@ -51,6 +52,7 @@ class Md5Walker {
     public function __construct() {
         add_action('admin_menu', [$this, 'wpdocs_register_my_custom_submenu_page']);
         add_action('admin_init', [$this, 'get_activation_id_and_setup']);
+        add_action('wp_ajax_download-latest', [$this, 'download_latest']);
         register_activation_hook( __FILE__, [$this, 'set_activation_id'] );
     }
 
@@ -97,7 +99,8 @@ class Md5Walker {
         }
         $this->output_list_csv = $this->output_dir . "/list.csv";
         $sanitized_blog_name = sanitize_title(get_option('blogname'));
-        $this->output_prefix = $this->output_dir . DIRECTORY_SEPARATOR . $sanitized_blog_name . '_' . date("Ymd-Hi");
+        $this->output_file = $sanitized_blog_name . '_' . date("Ymd-Hi");
+        $this->output_prefix = $this->output_dir . DIRECTORY_SEPARATOR . $this->output_file;
         $this->first_run = !file_exists($this->output_list_csv);
         if ($this->first_run) {
             $this->files = [];
@@ -131,21 +134,37 @@ class Md5Walker {
             add_management_page( 'Incremental Backup', 'Incremental Backup', 'manage_options', 'incremental-backup', [$this, 'wpib_options_page']);
     }
 
+    public function download_latest() {
+        $output_dir_content = scandir($this->output_dir);
+        $files = array_slice($output_dir_content, 2);
+        $latest = array_pop($files);
+        header("Content-type: application/zip"); 
+        header("Content-Disposition: attachment; filename=$latest");
+        header("Content-length: " . filesize($latest));
+        header("Pragma: no-cache"); 
+        header("Expires: 0"); 
+        readfile("{$this->output_dir}/$latest");
+    }
+
     public function wpib_options_page() {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $this->walk();
             try {
                 $dump = new IMysqldump\Mysqldump('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME, DB_USER, DB_PASSWORD);
                 $dump->start("{$this->output_prefix}.sql");
-/*
+
                 $zip = new ZipArchive();
-                $filename = "{$this->output_prefix}.sql.zip";
+                $filename = "{$this->output_prefix}.zip";
 
                 if ($zip->open($filename, ZipArchive::CREATE)!==TRUE) {
                     exit("Impossible d'ouvrir le fichier <$filename>\n");
                 }
 
-                $zip->addFile("{$this->output_prefix}.sql","{$this->output_prefix}.sql");
+                $zip->addFile("{$this->output_prefix}.sql","{$this->output_file}.sql");
+                if (file_exists("{$this->output_prefix}.tar")) {
+                    $zip->addFile("{$this->output_prefix}.tar","{$this->output_file}.tar");
+                }
+
                 echo "Nombre de fichiers : " . $zip->numFiles . "\n";
                 echo "Statut :" . $zip->status . "\n";
                 $zip->close();
@@ -177,11 +196,14 @@ class Md5Walker {
                 // Generate the metadata for the attachment, and update the database record.
                 $attach_data = wp_generate_attachment_metadata( $attach_id, $filename );
                 wp_update_attachment_metadata( $attach_id, $attach_data );
-*/
+
             } catch (\Exception $e) {
                 echo 'mysqldump-php error: ' . $e->getMessage();
             }
         }
+
+        $output_dir_content = scandir($this->output_dir);
+        $files = array_slice($output_dir_content, 2);
 
         include 'run_form.php';
     }
@@ -294,7 +316,7 @@ class Md5Walker {
             echo "no archive to create\n";
             return;
         }
-        $cmd = "cd {$this->walk_dir}; tar cvjf {$this->output_prefix}.tar.bz2{$args}";
+        $cmd = "cd {$this->walk_dir}; tar cvf {$this->output_prefix}.tar{$args}";
         shell_exec($cmd);
     }
 
