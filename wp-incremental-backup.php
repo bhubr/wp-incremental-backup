@@ -16,6 +16,9 @@
  * - delete theme
  * - edit plugin/theme file
  */
+use Ifsnop\Mysqldump as IMysqldump;
+require 'vendor/autoload.php';
+
 define('FILES_TO_DELETE', '__deleted_files__.txt');
 
 class Md5Walker {
@@ -23,7 +26,7 @@ class Md5Walker {
 	private $walk_dir;
 	private $cnt;
 	private $output_list_csv;
-	private $output_archive;
+	private $output_prefix;
 	private $output_dir;
 	private $first_run;
 	private $files;
@@ -48,7 +51,7 @@ class Md5Walker {
 		}
 		$this->output_list_csv = $this->output_dir . "/list.csv";
 		$sanitized_blog_name = sanitize_title(get_option('blogname'));
-		$this->output_archive = $this->output_dir . DIRECTORY_SEPARATOR . $sanitized_blog_name . '_' . date("Ymd-Hi") . '.tar.bz2';
+		$this->output_prefix = $this->output_dir . DIRECTORY_SEPARATOR . $sanitized_blog_name . '_' . date("Ymd-Hi");
 		$this->first_run = !file_exists($this->output_list_csv);
 		if ($this->first_run) {
 			$this->files = [];
@@ -70,6 +73,12 @@ class Md5Walker {
 	public function wpib_options_page() {
 		if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			$this->walk();
+			try {
+			    $dump = new IMysqldump\Mysqldump('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME, DB_USER, DB_PASSWORD);
+			    $dump->start("{$this->output_prefix}.sql");
+			} catch (\Exception $e) {
+			    echo 'mysqldump-php error: ' . $e->getMessage();
+			}
 		}
 		include 'run_form.php';
 	}
@@ -176,14 +185,13 @@ class Md5Walker {
 	private function write_archive($files_to_archive) {
 		$args = "";
 		foreach($files_to_archive as $filename) {
-			$args .= ' ' . $this->filename_from_root($filename);
+			$args .= ' ' . escapeshellarg($this->filename_from_root($filename));
 		}
 		if (empty($args)) {
 			echo "no archive to create\n";
 			return;
 		}
-		$cmd = "cd {$this->walk_dir}; tar cvjf {$this->output_archive}{$args}";
-		echo $cmd;
+		$cmd = "cd {$this->walk_dir}; tar cvjf {$this->output_prefix}.tar.bz2{$args}";
 		shell_exec($cmd);
 	}
 
