@@ -1,6 +1,6 @@
 <h2>Incremental Backup</h2>
 
-<p>You are running: <em><?php echo $server_soft; ?></em></p>
+<p>You are running: <em><?php echo $this->server_soft; ?></em></p>
 
 <form action="" method="POST">
 

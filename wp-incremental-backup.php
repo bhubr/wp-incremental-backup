@@ -5,7 +5,12 @@
  * Description: Create incremental backups of WordPress files&db
  * Author: t1z
  * Author URI: https://github.com/t1z
- * Version: 0.2.1
+ * Version: 0.2.2
+ *
+ * ChangeLog
+ * 0.2.0  First public version
+ * 0.2.1  Detect server soft
+ * 0.2.2  Write .htaccess for Apache
  *
  * Different cases:
  * - upload media
@@ -31,6 +36,7 @@ class Md5Walker {
 	private $first_run;
 	private $files;
 	private $activation_id;
+	private $server_soft;
 
 	/**
 	 * Initialize walk_dir, count, csv file
@@ -41,13 +47,23 @@ class Md5Walker {
 		register_activation_hook( __FILE__, [$this, 'set_activation_id'] );
 	}
 
+	private function is_apache() {
+		return $this->server_soft === 'Apache';
+	}
+
 	public function get_activation_id_and_setup() {
+		$server_soft = $_SERVER["SERVER_SOFTWARE"];
+		$server_soft_bits = explode('/', $server_soft);
+		$this->server_soft = $server_soft_bits[0];
 		$this->cnt = 0;
 		$this->activation_id = get_option('wpib_activation_id', true);
 		$this->walk_dir = get_home_path();
 		$this->output_dir = get_home_path() . "wp-content/wp-incremental-backup-{$this->activation_id}";
 		if (! is_dir($this->output_dir)) {
 			mkdir($this->output_dir);
+		}
+		if ($this->is_apache() && ! file_exists("{$this->output_dir}/.htaccess")) {
+			file_get_contents("{$this->output_dir}/.htaccess", "Deny from all");
 		}
 		$this->output_list_csv = $this->output_dir . "/list.csv";
 		$sanitized_blog_name = sanitize_title(get_option('blogname'));
@@ -80,7 +96,7 @@ class Md5Walker {
 			    echo 'mysqldump-php error: ' . $e->getMessage();
 			}
 		}
-		$server_soft = $_SERVER["SERVER_SOFTWARE"];
+
 		include 'run_form.php';
 	}
 
