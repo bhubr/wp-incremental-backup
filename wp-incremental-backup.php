@@ -80,6 +80,7 @@ class Md5Walker {
 			    echo 'mysqldump-php error: ' . $e->getMessage();
 			}
 		}
+		$server_soft = $_SERVER["SERVER_SOFTWARE"];
 		include 'run_form.php';
 	}
 
