@@ -3,6 +3,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 define('WPIB_CLIENT_DEBUG_MODE', true);
+define('WPIB_CLIENT_DEBUG_LEN', 300);
 
 class T1z_WP_Incremental_Backup_Client {
 
@@ -68,7 +69,7 @@ class T1z_WP_Incremental_Backup_Client {
 	 */
 	private function log($label, $str) {
 		echo "----- $label -----\n";
-		echo substr($str, 0, 1500) . "\n\n\n"; 
+		echo substr($str, 0, WPIB_CLIENT_DEBUG_LEN) . "\n\n\n"; 
 	}
 
 	/**
@@ -99,7 +100,7 @@ class T1z_WP_Incremental_Backup_Client {
 		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/tools.php?page=incremental-backup");
 		curl_setopt ($this->ch, CURLOPT_POSTFIELDS, "");
 		$result = curl_exec ($this->ch);
-		if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST login credentials', $result);
+		if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST generate backup', $result);
 	}
 
 	/**
