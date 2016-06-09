@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: WP Incremental Backup
- * Plugin URI: https://github.com/t1z/wpib
+ * Plugin URI: https://github.com/t1z/wp-incremental-backup
  * Description: Create incremental backups of WordPress files&db
  * Author: t1z
  * Author URI: https://github.com/t1z
@@ -24,18 +24,31 @@ class Md5Walker {
 	private $cnt;
 	private $output_list_csv;
 	private $output_archive;
-	private $output_dir = __DIR__;
+	private $output_dir;
 	private $first_run;
 	private $files;
+	private $activation_id;
 
 	/**
 	 * Initialize walk_dir, count, csv file
 	 */	
-	public function __construct($walk_dir, $domain) {
-		$this->walk_dir = $walk_dir;
+	public function __construct() {
+		add_action('admin_menu', [$this, 'wpdocs_register_my_custom_submenu_page']);
+		add_action('admin_init', [$this, 'get_activation_id_and_setup']);
+		register_activation_hook( __FILE__, [$this, 'set_activation_id'] );
+	}
+
+	public function get_activation_id_and_setup() {
 		$this->cnt = 0;
-		$this->output_list_csv = __DIR__ . "/list.csv";
-		$this->output_archive = $domain . '_' . date("Ymd-Hi") . '.tar.bz2';
+		$this->activation_id = get_option('wpib_activation_id', true);
+		$this->walk_dir = get_home_path();
+		$this->output_dir = get_home_path() . "wp-content/wp-incremental-backup-{$this->activation_id}";
+		if (! is_dir($this->output_dir)) {
+			mkdir($this->output_dir);
+		}
+		$this->output_list_csv = $this->output_dir . "/list.csv";
+		$sanitized_blog_name = sanitize_title(get_option('blogname'));
+		$this->output_archive = $this->output_dir . DIRECTORY_SEPARATOR . $sanitized_blog_name . '_' . date("Ymd-Hi") . '.tar.bz2';
 		$this->first_run = !file_exists($this->output_list_csv);
 		if ($this->first_run) {
 			$this->files = [];
@@ -43,23 +56,37 @@ class Md5Walker {
 		else {
 			$this->read();
 		}
-
-		add_action('admin_menu', [$this, 'wpdocs_register_my_custom_submenu_page']);
- 
 	}
+
+	public function set_activation_id() {
+		$activation_id = base_convert(time(), 10, 36);
+		update_option( 'wpib_activation_id', $activation_id, true );
+	}
+
 	public function wpdocs_register_my_custom_submenu_page() {
 			add_management_page( 'Incremental Backup', 'Incremental Backup', 'manage_options', 'incremental-backup', [$this, 'wpib_options_page']);
 	}
 
 	public function wpib_options_page() {
-		echo "<h2>hi there</h2>";
+		if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+			$this->walk();
+		}
+		include 'run_form.php';
 	}
 
 	/**
-	 * Check if file is a special dir
+	 * Check if file is a special dir: either . or ..
 	 */
 	private function is_special_dir($object) {
 		return $object->getFilename() === '.' || $object->getFilename() === '..';
+	}
+
+	/**
+	 * Check if file is the output dir
+	 */
+	private function is_output_dir($object) {
+		// if(dirname($object->getPathname()) === $this->output_dir) echo dirname($object->getPathname()) . ' ' . $this->output_dir . '<br>';
+		return dirname($object->getPathname()) === $this->output_dir;
 	}
 
 	/**
@@ -132,7 +159,7 @@ class Md5Walker {
 	 * Write files to delete list
 	 */
 	private function write_files_to_delete($files_to_delete) {
-		$dest = $this->walk_dir . DIRECTORY_SEPARATOR . FILES_TO_DELETE;
+		$dest = get_home_path() . DIRECTORY_SEPARATOR . FILES_TO_DELETE;
 		$fh = fopen($dest, 'w');
 		$num_to_delete = count($files_to_delete);
 		for($i = 0 ; $i < $num_to_delete ; $i++) {
@@ -155,7 +182,7 @@ class Md5Walker {
 			echo "no archive to create\n";
 			return;
 		}
-		$cmd = "cd {$this->walk_dir}; tar cvjf ../{$this->output_archive}{$args}";
+		$cmd = "cd {$this->walk_dir}; tar cvjf {$this->output_archive}{$args}";
 		echo $cmd;
 		shell_exec($cmd);
 	}
@@ -183,8 +210,8 @@ class Md5Walker {
 				continue;
 			}
 			
-			// Skip if this is . or ..
-			if($this->is_special_dir($object)) {
+			// Skip if this is . or .. or output dir 
+			if($this->is_special_dir($object) || $this->is_output_dir($object)) {
 				continue;
 			}
 
@@ -197,13 +224,13 @@ class Md5Walker {
 
 			$md5 = $this->add_file($name);
 			if($this->first_run || !array_key_exists($name, $this->files)) {
-				echo "new file: $name\n";
+				echo "new file: $name<br>";
 				$files_to_archive[] = $name;
 				continue;
 			}
 			$old_md5 = $this->get_md5($name);
 			if($md5 !== $old_md5) {
-				echo "modified file: $name (old md5 = $old_md5, new md5 = $md5)\n";
+				echo "<em>modified</em> file: $name (old md5 = $old_md5, new md5 = $md5)<br>";
 				$files_to_archive[] = $name;
 			}
 
@@ -212,7 +239,7 @@ class Md5Walker {
 		// Iterate existing files from previous backup's list
 		foreach($this->files as $name => $md5) {
 			if (!empty($md5) && array_search($name, $found_in_dirs) === false) {
-				echo "deleted file: $name\n";
+				echo "<em>deleted</em> file: $name<br>";
 				$files_to_delete[] = $name;
 			}
 		}
