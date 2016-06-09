@@ -13,6 +13,7 @@
  * 0.2.2 Write .htaccess for Apache
  * 0.2.3 Admin notices & fix indentation
  * 0.2.4 Admin notices message
+ * 0.2.5 Change output dir location and fix .htaccess writing
  *
  * Different cases:
  * - upload media
@@ -68,7 +69,7 @@ class Md5Walker {
             add_action( 'admin_notices', [$this, $notice_func] );
         }
         if ($this->is_apache() && ! file_exists("{$this->output_dir}/.htaccess")) {
-            file_get_contents("{$this->output_dir}/.htaccess", "Deny from all");
+            file_put_contents("{$this->output_dir}/.htaccess", "Deny from all");
         }
         $this->output_list_csv = $this->output_dir . "/list.csv";
         $sanitized_blog_name = sanitize_title(get_option('blogname'));
