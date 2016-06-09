@@ -145,6 +145,8 @@ class Md5Walker {
         header("Pragma: no-cache"); 
         header("Expires: 0"); 
         readfile("{$this->output_dir}/$latest");
+        unlink("{$this->output_dir}/$latest");
+        exit;
     }
 
     public function wpib_options_page() {
@@ -169,6 +171,10 @@ class Md5Walker {
                 echo "Nombre de fichiers : " . $zip->numFiles . "\n";
                 echo "Statut :" . $zip->status . "\n";
                 $zip->close();
+                unlink("{$this->output_prefix}.sql");
+                if (file_exists("{$this->output_prefix}.tar")) {
+                    unlink("{$this->output_prefix}.tar");
+                }
 
                 // The ID of the post this attachment is for.
                 $parent_post_id = 0;
