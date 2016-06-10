@@ -219,7 +219,7 @@ class T1z_Incremental_Backup {
         //     // echo $this->filename_from_root($filename) . "<br>";
         //     $args .= ' ' . escapeshellarg($this->filename_from_root($filename));
         // }
-        $cmd = "cd {$this->input_dir}; tar cv -T {$list} -f {$this->output_fullpath_prefix}.tar{$args}";
+        $cmd = "cd {$this->input_dir}; tar c -T {$list} -f {$this->output_fullpath_prefix}.tar{$args}";
         // die(file_get_contents($list));
         
         shell_exec($cmd);
