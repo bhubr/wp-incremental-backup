@@ -1,5 +1,8 @@
 {
     "require": {
         "ifsnop/mysqldump-php": "2.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "5.4.*"
     }
 }
