@@ -24,6 +24,11 @@ class T1z_Incremental_Backup {
     /**
      * Output file prefix
      */
+    private $output_fullpath_prefix;
+
+    /**
+     * Output file prefix
+     */
     private $output_file_prefix;
 
     public function __construct($input_dir, $output_root_dir, $output_set_id, $output_file_prefix) {
@@ -31,7 +36,8 @@ class T1z_Incremental_Backup {
         $this->output_root_dir = $output_root_dir;
         $this->output_set_id = $output_set_id;
         $this->output_dir = $this->output_root_dir . DIRECTORY_SEPARATOR . $output_set_id;
-        $this->output_file_prefix = $this->output_dir . DIRECTORY_SEPARATOR . $output_file_prefix;
+        $this->output_file_prefix = $output_file_prefix;
+        $this->output_fullpath_prefix = $this->output_dir . DIRECTORY_SEPARATOR . $output_file_prefix;
 
         if (! is_dir($this->output_dir)) {
             $dir_created = mkdir($this->output_dir, 0777, true);
@@ -55,7 +61,7 @@ class T1z_Incremental_Backup {
             'output_root_dir'    => $this->output_root_dir,
             'output_dir'         => $this->output_dir,
             'output_set_id'      => $this->output_set_id,
-            'output_file_prefix' => $this->output_file_prefix
+            'output_file_prefix' => $this->output_fullpath_prefix
         ];
     }
 
@@ -184,7 +190,7 @@ class T1z_Incremental_Backup {
             echo "no archive to create\n";
             return;
         }
-        $cmd = "cd {$this->input_dir}; tar cvf {$this->output_file_prefix}.tar{$args}";
+        $cmd = "cd {$this->input_dir}; tar cvf {$this->output_fullpath_prefix}.tar{$args}";
         shell_exec($cmd);
     }
 
@@ -192,9 +198,9 @@ class T1z_Incremental_Backup {
      * Clean-up tar and sql
      */
     public function cleanup_tar_and_sql() {
-        unlink("{$this->output_file_prefix}.sql");
-        if (file_exists("{$this->output_file_prefix}.tar")) {
-            unlink("{$this->output_file_prefix}.tar");
+        unlink("{$this->output_fullpath_prefix}.sql");
+        if (file_exists("{$this->output_fullpath_prefix}.tar")) {
+            unlink("{$this->output_fullpath_prefix}.tar");
         }
     }
 
@@ -203,15 +209,15 @@ class T1z_Incremental_Backup {
      */
     public function prepare_zip() {
         $zip = new ZipArchive();
-        $filename = "{$this->output_file_prefix}.zip";
+        $filename = "{$this->output_fullpath_prefix}.zip";
 
         if ($zip->open($filename, ZipArchive::CREATE)!==TRUE) {
             throw new Exception("Could not open ZIP archive <$filename>\n");
         }
 
-        $zip->addFile("{$this->output_file_prefix}.sql","{$this->output_file}.sql");
-        if (file_exists("{$this->output_file_prefix}.tar")) {
-            $zip->addFile("{$this->output_file_prefix}.tar","{$this->output_file}.tar");
+        $zip->addFile("{$this->output_fullpath_prefix}.sql","{$this->output_file_prefix}.sql");
+        if (file_exists("{$this->output_fullpath_prefix}.tar")) {
+            $zip->addFile("{$this->output_fullpath_prefix}.tar","{$this->output_file_prefix}.tar");
         }
 
         echo "Nombre de fichiers : " . $zip->numFiles . "\n";
@@ -224,7 +230,7 @@ class T1z_Incremental_Backup {
      */
     public function prepare_sql_dump($host, $db, $user, $pass) {
         $dump = new IMysqldump\Mysqldump("mysql:host={$host};dbname={$db}", $user, $pass);
-        $dump->start("{$this->output_file_prefix}.sql");
+        $dump->start("{$this->output_fullpath_prefix}.sql");
     }
 
     /**
