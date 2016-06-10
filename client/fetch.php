@@ -1,7 +1,10 @@
 <?php
 
 define('WPIB_CLIENT_DEBUG_MODE', true);
-define('WPIB_CLIENT_DEBUG_LEN', 300);
+define('WPIB_CLIENT_DEBUG_LEN', 40);
+define('BACKUP_ROOT', '/Volumes/Backup/Geek/Sites');
+
+require realpath(__DIR__ . '/../common/constants.php');
 
 class T1z_WP_Incremental_Backup_Client {
 
@@ -62,7 +65,7 @@ class T1z_WP_Incremental_Backup_Client {
 			$this->get_login($config);
 			$this->post_login($config);
 			$this->post_generate_backup($config);
-			$this->get_fetch_backup($config, $site);
+			$this->get_fetch_backup_and_concat($config, $site);
 		}
 		curl_close($this->ch);
 	}
@@ -107,18 +110,58 @@ class T1z_WP_Incremental_Backup_Client {
 		if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST generate backup', $this->zip_filename);
 	}
 
+	private function get_destination_dir($site) {
+		return BACKUP_ROOT . DIRECTORY_SEPARATOR . $site;
+	}
+
 	/**
 	 * GET request to fetch backup
 	 */
-	private function get_fetch_backup($config, $site) {
+	private function get_fetch_backup_and_concat($config, $site) {
 		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/admin-ajax.php?action=wpib_download");
 		curl_setopt ($this->ch, CURLOPT_POST, 0);
 		$data = curl_exec ($this->ch);
 
-		$destination = __DIR__ . "/{$this->zip_filename}";
+		$dest_dir_prefix = $this->get_destination_dir($site);
+		$dest_dir = $dest_dir_prefix . DIRECTORY_SEPARATOR . "wpib";
+		$wp_expanded_dir = $dest_dir_prefix . DIRECTORY_SEPARATOR . "wordpress";
+
+		if (!is_dir($dest_dir)) mkdir($dest_dir, 0777, true);
+		if (!is_dir($wp_expanded_dir)) mkdir($wp_expanded_dir);
+
+		$destination = $dest_dir . DIRECTORY_SEPARATOR . $this->zip_filename;
 		$file = fopen($destination, "w+");
 		fputs($file, $data);
 		fclose($file);
+
+		$info = pathinfo($destination);
+		$filename_prefix =  basename($destination,'.'.$info['extension']);
+		$tar = "$filename_prefix.tar";
+		$tar_fullpath = $dest_dir . DIRECTORY_SEPARATOR . $tar;
+
+		$cmd1 = "cd $dest_dir; unzip {$this->zip_filename};";
+		echo $cmd1 . "\n";
+		echo shell_exec($cmd1);
+
+		if(file_exists($tar_fullpath)) {
+			$cmd2 = "cd $wp_expanded_dir; tar xvf $tar_fullpath";
+			echo $cmd2 . "\n";
+			echo shell_exec($cmd2);
+
+			$to_delete_list_file = $wp_expanded_dir . DIRECTORY_SEPARATOR . FILES_TO_DELETE;
+			if(file_exists($to_delete_list_file)) {
+				$files_to_delete = file($to_delete_list_file);
+				$files_to_delete_escaped = array_map(function($file) {
+					return escapeshellarg(trim($file));
+				}, $files_to_delete);
+				$files_to_delete_str = implode(' ', $files_to_delete_escaped);
+				// var_dump($files_to_delete_str);
+				$cmd3 = "cd $wp_expanded_dir; rm $files_to_delete_str";
+				echo shell_exec($cmd3);
+
+				unlink($to_delete_list_file);
+			}
+		}
 	}
 }
 
