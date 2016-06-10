@@ -76,19 +76,6 @@ class T1z_Incremental_Backup {
         }
     }
 
-    public function download_latest() {
-        $files = $this->get_output_dir_content();
-        $latest = array_pop($files);
-        header("Content-type: application/zip"); 
-        header("Content-Disposition: attachment; filename=$latest");
-        header("Content-length: " . filesize($latest));
-        header("Pragma: no-cache"); 
-        header("Expires: 0"); 
-        readfile("{$this->output_dir}/$latest");
-        unlink("{$this->output_dir}/$latest");
-        exit;
-    }
-
     /**
      * Check if file is a special dir: either . or ..
      */

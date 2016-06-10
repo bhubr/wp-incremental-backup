@@ -22,7 +22,7 @@
 <h3>Output dir content</h3>
 <ul>
 <?php foreach($files as $file): ?>
-	<li><?php echo $file; ?></li>
+	<li><a href="admin-ajax.php?action=wpib_download&amp;filename=<?php echo urlencode($file); ?>"><?php echo $file; ?></a></li>
 <?php endforeach; ?>
 </ul>
 

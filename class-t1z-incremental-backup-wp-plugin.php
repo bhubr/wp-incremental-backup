@@ -32,9 +32,10 @@ class T1z_Incremental_Backup_WP_Plugin {
     private function setup_wp() {
         add_action('admin_menu', [$this, 'wpdocs_register_my_custom_submenu_page']);
         add_action('admin_init', [$this, 'get_activation_id_and_setup']);
-        add_action('wp_ajax_download-latest', [$this, 'download_latest']);
+        add_action('wp_ajax_wpib_download', [$this, 'download_file']);
         register_activation_hook( __FILE__, [$this, 'set_activation_id'] );
     }
+
 
     private function is_apache() {
         return $this->server_soft === 'Apache';
@@ -117,5 +118,23 @@ class T1z_Incremental_Backup_WP_Plugin {
         $files = $this->inc_bak->get_output_dir_content();
         $params = $this->inc_bak->get_params();
         include 'run_form.php';
+    }
+
+    public function download_file() {
+        if (! isset($_GET['filename'])) {
+            $files = $this->get_output_dir_content();
+            $filename = array_pop($files);
+        }
+        else $filename = $_GET['filename'];
+        $fullpath = "{$this->inc_bak->output_dir}/$filename";
+        // die(base64_encode(file_get_contents($fullpath)));
+        header("Content-type: application/zip"); 
+        header("Content-Disposition: attachment; filename=$filename");
+        header("Content-length: " . filesize($fullpath));
+        header("Pragma: no-cache"); 
+        header("Expires: 0"); 
+        readfile($fullpath);
+        // unlink($fullpath);
+        exit;
     }
 }
