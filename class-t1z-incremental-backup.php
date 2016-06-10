@@ -75,7 +75,7 @@ class T1z_Incremental_Backup {
         return $files;
     }
 
-    private function output_dir_content_cleanup() {
+    public function output_dir_content_cleanup() {
         $files = $this->get_output_dir_content();
         foreach ($files as $file) {
             unlink($this->output_dir . '/' . $file);
@@ -186,16 +186,44 @@ class T1z_Incremental_Backup {
      * Write archive
      */
     private function write_archive($files_to_archive) {
-        $args = "";
-        foreach($files_to_archive as $filename) {
-            $args .= ' ' . escapeshellarg($this->filename_from_root($filename));
-        }
-        if (empty($args)) {
+        if (empty($files_to_archive)) {
             // echo "no archive to create\n";
             return;
         }
-        $cmd = "cd {$this->input_dir}; tar cvf {$this->output_fullpath_prefix}.tar{$args}";
+        // echo count($files_to_archive);
+        // die();
+        // var_dump($files_to_archive);die();
+        $list = $this->output_dir . DIRECTORY_SEPARATOR . 'archive.txt';
+        $fh = fopen($list, 'w');
+
+        $files = array_map(function($file) {
+            return $this->filename_from_root($file);
+        }, $files_to_archive);
+        $file_list = implode("\n", $files);
+        file_put_contents($list, $file_list);
+        // var_dump(file_get_contents($list))die();
+        // var_dump($file_list);die();
+
+
+        // $num_to_archive = count($files_to_archive);
+        // for($i = 0 ; $i < $files_to_archive ; $i++) {
+        //     $filename = $this->filename_from_root($files_to_archive[$i]);
+        //     $not_last = $i < $num_to_archive - 1;
+        //     fwrite($fh, $filename . ($not_last ? "\n" : ""));
+        //     // echo $filename . ' ';
+        // }
+        // fclose($fh);
+
+        // foreach($files_to_archive as $filename) {
+        //     // echo "$filename<br>";
+        //     // echo $this->filename_from_root($filename) . "<br>";
+        //     $args .= ' ' . escapeshellarg($this->filename_from_root($filename));
+        // }
+        $cmd = "cd {$this->input_dir}; tar cv -T {$list} -f {$this->output_fullpath_prefix}.tar{$args}";
+        // die(file_get_contents($list));
+        
         shell_exec($cmd);
+        // unlink($list);
     }
 
     /**
@@ -262,7 +290,7 @@ class T1z_Incremental_Backup {
 
         // Iterate directory
         foreach($objects as $name => $object) {
-
+// echo $name;
             // Skip deleted files list => delete it
             if($object->getFilename() === FILES_TO_DELETE) {
                 unlink($object->getPathname());
@@ -280,7 +308,7 @@ class T1z_Incremental_Backup {
                 continue;
             }
             $found_in_dirs[] = $name;
-
+// error_log("should echo $name");
             $md5 = $this->add_file($name);
             if($this->first_run || !array_key_exists($name, $this->files)) {
                 // echo "new file: $name<br>";
