@@ -101,6 +101,7 @@ class T1z_Incremental_Backup_WP_Plugin {
     }
 
     public function generate_backup() {
+        if(! current_user_can('manage_options')) die('0');
         $result = $this->inc_bak->prepare_files_archive();
         $this->inc_bak->prepare_sql_dump(DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
         try {
@@ -122,6 +123,7 @@ class T1z_Incremental_Backup_WP_Plugin {
     }
 
     public function download_file() {
+        if(! current_user_can('manage_options')) die('0');
         if (! isset($_GET['filename'])) {
             $filename = $this->inc_bak->get_latest_zip_filename();
         }
