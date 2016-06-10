@@ -5,7 +5,7 @@
  * Description: Create incremental backups of WordPress files&db
  * Author: t1z
  * Author URI: https://github.com/t1z
- * Version: 0.4.1
+ * Version: 0.4.2
  *
  * ChangeLog
  * 0.2.0 First public version
@@ -28,6 +28,7 @@
  * 0.4.0 concatenation of backup (with deletion of files) works
  * 0.4.1 fix 'tar: argument list too long' problem
  *       (http://stackoverflow.com/questions/23817787/bash-bin-tar-argument-list-too-long-when-compressing-many-files-with-tar)
+ * 0.4.2 push forgotten constants file
  *
  * ToDo
  *   - exclude output_dirs
