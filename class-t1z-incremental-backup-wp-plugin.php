@@ -122,12 +122,11 @@ class T1z_Incremental_Backup_WP_Plugin {
 
     public function download_file() {
         if (! isset($_GET['filename'])) {
-            $files = $this->get_output_dir_content();
+            $files = $this->inc_bak->get_output_dir_content();
             $filename = array_pop($files);
         }
         else $filename = $_GET['filename'];
         $fullpath = "{$this->inc_bak->output_dir}/$filename";
-        // die(base64_encode(file_get_contents($fullpath)));
         header("Content-type: application/zip"); 
         header("Content-Disposition: attachment; filename=$filename");
         header("Content-length: " . filesize($fullpath));
