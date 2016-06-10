@@ -113,7 +113,7 @@ class T1z_Incremental_Backup_WP_Plugin {
     }
 
     public function wpib_options_page() {
-        if(isset($_GET['do_cleanup'])) {
+        if(isset($_GET['do_cleanup']) && $_GET['do_cleanup'] == 1) {
             $this->inc_bak->output_dir_content_cleanup();
         }
         $files = $this->inc_bak->get_output_dir_content();
