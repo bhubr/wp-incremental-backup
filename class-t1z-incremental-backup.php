@@ -237,9 +237,9 @@ class T1z_Incremental_Backup {
     }
 
     public function get_latest_zip_filename() {
-        $files = $this->get_output_dir_content();
+        $files = glob("{$this->output_dir}/*.zip");
         $filename = array_pop($files);
-        return $filename;
+        return basename($filename);
     }
 
     /**
