@@ -93,7 +93,6 @@ class T1z_Incremental_Backup {
      * Check if file is the output dir
      */
     private function is_output_dir($object) {
-        // if(dirname($object->getPathname()) === $this->output_dir) echo dirname($object->getPathname()) . ' ' . $this->output_dir . '<br>';
         return dirname($object->getPathname()) === $this->output_dir;
     }
 
@@ -160,7 +159,6 @@ class T1z_Incremental_Backup {
         $prefix_len = strlen($this->input_dir);
         $last_char = $this->input_dir[$prefix_len - 1];
         $prefix_len += ($last_char === '/') ? 0 : 1;
-        // error_log("file name from root: $filename");
         return substr($filename, $prefix_len);
     }
 
@@ -172,13 +170,11 @@ class T1z_Incremental_Backup {
         $fh = fopen($dest, 'w');
         $num_to_delete = count($files_to_delete);
         for($i = 0 ; $i < $num_to_delete ; $i++) {
-            // error_log("to delete: " . $files_to_delete[$i]);
             $filename = $this->filename_from_root($files_to_delete[$i]);
             $not_last = $i < $num_to_delete - 1;
             fwrite($fh, $filename . ($not_last ? "\n" : ""));
         }
         fclose($fh);
-        // error_log($dest);
         return $num_to_delete > 0 ? $dest : '';
     }
 
@@ -187,12 +183,8 @@ class T1z_Incremental_Backup {
      */
     private function write_archive($files_to_archive) {
         if (empty($files_to_archive)) {
-            // echo "no archive to create\n";
             return;
         }
-        // echo count($files_to_archive);
-        // die();
-        // var_dump($files_to_archive);die();
         $list = $this->output_dir . DIRECTORY_SEPARATOR . 'archive.txt';
         $fh = fopen($list, 'w');
 
@@ -201,29 +193,8 @@ class T1z_Incremental_Backup {
         }, $files_to_archive);
         $file_list = implode("\n", $files);
         file_put_contents($list, $file_list);
-        // var_dump(file_get_contents($list))die();
-        // var_dump($file_list);die();
-
-
-        // $num_to_archive = count($files_to_archive);
-        // for($i = 0 ; $i < $files_to_archive ; $i++) {
-        //     $filename = $this->filename_from_root($files_to_archive[$i]);
-        //     $not_last = $i < $num_to_archive - 1;
-        //     fwrite($fh, $filename . ($not_last ? "\n" : ""));
-        //     // echo $filename . ' ';
-        // }
-        // fclose($fh);
-
-        // foreach($files_to_archive as $filename) {
-        //     // echo "$filename<br>";
-        //     // echo $this->filename_from_root($filename) . "<br>";
-        //     $args .= ' ' . escapeshellarg($this->filename_from_root($filename));
-        // }
         $cmd = "cd {$this->input_dir}; tar c -T {$list} -f {$this->output_fullpath_prefix}.tar{$args}";
-        // die(file_get_contents($list));
-        
         shell_exec($cmd);
-        // unlink($list);
     }
 
     /**
@@ -257,9 +228,6 @@ class T1z_Incremental_Backup {
         if (file_exists("{$this->output_fullpath_prefix}.tar")) {
             $zip->addFile("{$this->output_fullpath_prefix}.tar","{$this->output_file_prefix}.tar");
         }
-
-        // echo "Nombre de fichiers : " . $zip->numFiles . "\n";
-        // echo "Statut :" . $zip->status . "\n";
         $zip->close();
     }
 
@@ -290,7 +258,7 @@ class T1z_Incremental_Backup {
 
         // Iterate directory
         foreach($objects as $name => $object) {
-// echo $name;
+
             // Skip deleted files list => delete it
             if($object->getFilename() === FILES_TO_DELETE) {
                 unlink($object->getPathname());
@@ -308,7 +276,7 @@ class T1z_Incremental_Backup {
                 continue;
             }
             $found_in_dirs[] = $name;
-// error_log("should echo $name");
+
             $md5 = $this->add_file($name);
             if($this->first_run || !array_key_exists($name, $this->files)) {
                 // echo "new file: $name<br>";
@@ -322,7 +290,6 @@ class T1z_Incremental_Backup {
                 // echo "<em>modified</em> file: $name (old md5 = $old_md5, new md5 = $md5)<br>";
                 $files_modified[$name] = [$old_md5, $md5];
                 $files_to_archive[] = $name;
-                // error_log("modified: $name");
             }
 
         }
@@ -331,21 +298,17 @@ class T1z_Incremental_Backup {
         foreach($this->files as $name => $md5) {
             if (!empty($md5) && array_search($name, $found_in_dirs) === false) {
                 // echo "<em>deleted</em> file: $name<br>";
-                // error_log("deleted: $name");
                 $files_to_delete[] = $name;
             }
         }
         $deleted_list_file = $this->write_files_to_delete($files_to_delete);
         if (!empty($deleted_list_file)) {
             $files_to_archive[] = $deleted_list_file;
-            // error_log("deleted files: $deleted_list_file");
-            // error_log(print_r($files_to_archive, true));
         }
 
         $this->write_archive($files_to_archive);
 
         fclose($this->fh);
-        // echo "done: {$this->cnt}\n";
 
         return [
             'new'      => $files_new,
