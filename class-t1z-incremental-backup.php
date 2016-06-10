@@ -187,7 +187,7 @@ class T1z_Incremental_Backup {
             $args .= ' ' . escapeshellarg($this->filename_from_root($filename));
         }
         if (empty($args)) {
-            echo "no archive to create\n";
+            // echo "no archive to create\n";
             return;
         }
         $cmd = "cd {$this->input_dir}; tar cvf {$this->output_fullpath_prefix}.tar{$args}";
