@@ -33,6 +33,7 @@ class T1z_Incremental_Backup_WP_Plugin {
         add_action('admin_menu', [$this, 'wpdocs_register_my_custom_submenu_page']);
         add_action('admin_init', [$this, 'get_activation_id_and_setup']);
         add_action('wp_ajax_wpib_download', [$this, 'download_file']);
+        add_action('wp_ajax_wpib_generate', [$this, 'generate_backup']);
         register_activation_hook( __FILE__, [$this, 'set_activation_id'] );
     }
 
@@ -99,22 +100,22 @@ class T1z_Incremental_Backup_WP_Plugin {
             add_management_page( 'Incremental Backup', 'Incremental Backup', 'manage_options', 'incremental-backup', [$this, 'wpib_options_page']);
     }
 
+    public function generate_backup() {
+        $result = $this->inc_bak->prepare_files_archive();
+        $this->inc_bak->prepare_sql_dump(DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
+        try {
+            $this->inc_bak->prepare_zip();
+        } catch (\Exception $e) {
+            echo 'mysqldump-php error: ' . $e->getMessage();
+        }
+        if (CLEANUP_AFTER_ZIP) $this->inc_bak->cleanup_tar_and_sql();
+        die($this->inc_bak->get_latest_zip_filename());
+    }
+
     public function wpib_options_page() {
-        $is_post = $_SERVER['REQUEST_METHOD'] === 'POST';
         if(isset($_GET['do_cleanup'])) {
             $this->inc_bak->output_dir_content_cleanup();
         }
-        if ($is_post) {
-            $result = $this->inc_bak->prepare_files_archive();
-            $this->inc_bak->prepare_sql_dump(DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
-            try {
-                $this->inc_bak->prepare_zip();
-            } catch (\Exception $e) {
-                echo 'mysqldump-php error: ' . $e->getMessage();
-            }
-            if (CLEANUP_AFTER_ZIP) $this->inc_bak->cleanup_tar_and_sql();
-        }
-
         $files = $this->inc_bak->get_output_dir_content();
         $params = $this->inc_bak->get_params();
         include 'run_form.php';
@@ -122,8 +123,7 @@ class T1z_Incremental_Backup_WP_Plugin {
 
     public function download_file() {
         if (! isset($_GET['filename'])) {
-            $files = $this->inc_bak->get_output_dir_content();
-            $filename = array_pop($files);
+            $filename = $this->inc_bak->get_latest_zip_filename();
         }
         else $filename = $_GET['filename'];
         $fullpath = "{$this->inc_bak->output_dir}/$filename";

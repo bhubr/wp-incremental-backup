@@ -5,7 +5,7 @@
  * Description: Create incremental backups of WordPress files&db
  * Author: t1z
  * Author URI: https://github.com/t1z
- * Version: 0.3.5
+ * Version: 0.3.6
  *
  * ChangeLog
  * 0.2.0 First public version
@@ -24,10 +24,10 @@
  * 0.3.3 move download_file function, allow download from list
  * 0.3.4 fix archive file paths
  * 0.3.5 fix download when no filename is specified
+ * 0.3.6 client gets latest filename
  *
  * ToDo
  *   - exclude output_dirs
- *   - fix zip download
  *   - encrypt files: mcrypt/GPG/...?
  *   - make it compatible with other platforms (Drupal, Joomla, all PHP frameworks)
  *

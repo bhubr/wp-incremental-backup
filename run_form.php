@@ -50,7 +50,7 @@
 	</ul>
 <?php else: ?>
 <h3>Run process</h3>
-<form action="" method="POST">
+<form action="admin-ajax.php?action=wpib_generate" method="POST">
 	<input type="submit" class="button" value="Run" />
 </form>
 <?php endif; ?>
