@@ -1,2 +1,10 @@
 composer.lock
-inc/fetch.conf.php
+client/fetch.ini
+vendor/bin/
+vendor/doctrine/
+vendor/myclabs/
+vendor/phpdocumentor/
+vendor/phpspec/
+vendor/phpunit/
+vendor/sebastian/
+vendor/symfony/
