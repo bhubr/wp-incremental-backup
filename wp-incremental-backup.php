@@ -5,7 +5,7 @@
  * Description: Create incremental backups of WordPress files&db
  * Author: t1z
  * Author URI: https://github.com/t1z
- * Version: 0.3.4
+ * Version: 0.3.5
  *
  * ChangeLog
  * 0.2.0 First public version
@@ -23,6 +23,7 @@
  * 0.3.2 comment out attachment creation
  * 0.3.3 move download_file function, allow download from list
  * 0.3.4 fix archive file paths
+ * 0.3.5 fix download when no filename is specified
  *
  * ToDo
  *   - exclude output_dirs

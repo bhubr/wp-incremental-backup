@@ -27,7 +27,7 @@ class T1z_WP_Incremental_Backup_Client {
 	 * read ini file
 	 */
 	private function read_config() {
-		$this->config = parse_ini_file('fetch.ini', true);
+		$this->config = parse_ini_file(__DIR__ . '/fetch.ini', true);
 	}
 
 	/**
