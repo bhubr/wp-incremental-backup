@@ -2,7 +2,7 @@
 use Ifsnop\Mysqldump as IMysqldump;
 require 'vendor/autoload.php';
 
-define('FILES_TO_DELETE', '__deleted_files__.txt');
+require 'common/constants.php';
 
 class T1z_Incremental_Backup {
 
@@ -160,6 +160,7 @@ class T1z_Incremental_Backup {
         $prefix_len = strlen($this->input_dir);
         $last_char = $this->input_dir[$prefix_len - 1];
         $prefix_len += ($last_char === '/') ? 0 : 1;
+        // error_log("file name from root: $filename");
         return substr($filename, $prefix_len);
     }
 
@@ -167,15 +168,18 @@ class T1z_Incremental_Backup {
      * Write files to delete list
      */
     private function write_files_to_delete($files_to_delete) {
-        $dest = get_home_path() . DIRECTORY_SEPARATOR . FILES_TO_DELETE;
+        $dest = get_home_path() . FILES_TO_DELETE;
         $fh = fopen($dest, 'w');
         $num_to_delete = count($files_to_delete);
         for($i = 0 ; $i < $num_to_delete ; $i++) {
+            // error_log("to delete: " . $files_to_delete[$i]);
             $filename = $this->filename_from_root($files_to_delete[$i]);
             $not_last = $i < $num_to_delete - 1;
             fwrite($fh, $filename . ($not_last ? "\n" : ""));
         }
-        return $num_to_delete > 0 ? $dest : "";
+        fclose($fh);
+        // error_log($dest);
+        return $num_to_delete > 0 ? $dest : '';
     }
 
     /**
@@ -282,6 +286,7 @@ class T1z_Incremental_Backup {
                 // echo "new file: $name<br>";
                 $files_new[] = $name;
                 $files_to_archive[] = $name;
+                // error_log("new file: $name");
                 continue;
             }
             $old_md5 = $this->get_md5($name);
@@ -289,6 +294,7 @@ class T1z_Incremental_Backup {
                 // echo "<em>modified</em> file: $name (old md5 = $old_md5, new md5 = $md5)<br>";
                 $files_modified[$name] = [$old_md5, $md5];
                 $files_to_archive[] = $name;
+                // error_log("modified: $name");
             }
 
         }
@@ -297,12 +303,15 @@ class T1z_Incremental_Backup {
         foreach($this->files as $name => $md5) {
             if (!empty($md5) && array_search($name, $found_in_dirs) === false) {
                 // echo "<em>deleted</em> file: $name<br>";
+                // error_log("deleted: $name");
                 $files_to_delete[] = $name;
             }
         }
         $deleted_list_file = $this->write_files_to_delete($files_to_delete);
         if (!empty($deleted_list_file)) {
             $files_to_archive[] = $deleted_list_file;
+            // error_log("deleted files: $deleted_list_file");
+            // error_log(print_r($files_to_archive, true));
         }
 
         $this->write_archive($files_to_archive);
