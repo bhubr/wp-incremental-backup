@@ -1,4 +1,0 @@
-<?php
-$username="admin";
-$password="admin";
-$url="http://www.mydomain.com/";
