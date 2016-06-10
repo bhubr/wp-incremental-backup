@@ -204,6 +204,12 @@ class T1z_Incremental_Backup {
         }
     }
 
+    public function get_latest_zip_filename() {
+        $files = $this->get_output_dir_content();
+        $filename = array_pop($files);
+        return $filename;
+    }
+
     /**
      * Prepare zip archive from files tar archive and sql dump
      */
@@ -220,8 +226,8 @@ class T1z_Incremental_Backup {
             $zip->addFile("{$this->output_fullpath_prefix}.tar","{$this->output_file_prefix}.tar");
         }
 
-        echo "Nombre de fichiers : " . $zip->numFiles . "\n";
-        echo "Statut :" . $zip->status . "\n";
+        // echo "Nombre de fichiers : " . $zip->numFiles . "\n";
+        // echo "Statut :" . $zip->status . "\n";
         $zip->close();
     }
 

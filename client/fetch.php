@@ -16,6 +16,11 @@ class T1z_WP_Incremental_Backup_Client {
 	private $config;
 
 	/**
+	 * Latest ZIP file name
+	 */
+	private $zip_filename;
+
+	/**
 	 * Constructor: read ini file and setup cURL
 	 */
 	public function __construct() {
@@ -95,10 +100,11 @@ class T1z_WP_Incremental_Backup_Client {
 	 * POST request to generate backup
 	 */
 	private function post_generate_backup($config) {
-		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/tools.php?page=incremental-backup");
+		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/admin-ajax.php?action=wpib_generate");
 		curl_setopt ($this->ch, CURLOPT_POSTFIELDS, "");
-		$result = curl_exec ($this->ch);
-		if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST generate backup', $result);
+		$this->zip_filename = curl_exec ($this->ch);
+
+		if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST generate backup', $this->zip_filename);
 	}
 
 	/**
@@ -109,7 +115,7 @@ class T1z_WP_Incremental_Backup_Client {
 		curl_setopt ($this->ch, CURLOPT_POST, 0);
 		$data = curl_exec ($this->ch);
 
-		$destination = "./$site-latest.zip";
+		$destination = __DIR__ . "/{$this->zip_filename}";
 		$file = fopen($destination, "w+");
 		fputs($file, $data);
 		fclose($file);
