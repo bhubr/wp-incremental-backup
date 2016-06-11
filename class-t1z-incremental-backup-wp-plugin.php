@@ -1,12 +1,9 @@
 <?php
 require 'class-t1z-incremental-backup.php';
 
-define('CLEANUP_AFTER_ZIP', false);
 class T1z_Incremental_Backup_WP_Plugin {
 
     private $activation_id;
-    private $cnt;
-
     private $output_list_csv;
     private $output_prefix;
     private $output_file;
@@ -102,15 +99,21 @@ class T1z_Incremental_Backup_WP_Plugin {
 
     public function generate_backup() {
         if(! current_user_can('manage_options')) die('0');
-        $result = $this->inc_bak->prepare_files_archive();
-        $this->inc_bak->prepare_sql_dump(DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
         try {
-            $this->inc_bak->prepare_zip();
-        } catch (\Exception $e) {
-            echo 'mysqldump-php error: ' . $e->getMessage();
+            $generated_zip_file = $this->inc_bak->generate_backup();
+            $response_payload = json_encode([
+                'success' => true,
+                'zip_filename' => $generated_zip_file
+            ]);
+        } catch(\Exception $e) {
+            $response_payload = json_encode([
+                'success' => false,
+                'error_type' => $e->getType(),
+                'error_details' => $e->getMessage()
+            ]);
         }
-        if (CLEANUP_AFTER_ZIP) $this->inc_bak->cleanup_tar_and_sql();
-        die($this->inc_bak->get_latest_zip_filename());
+        header("Content-type: application/json");
+        die($response_payload);
     }
 
     public function wpib_options_page() {
@@ -128,14 +131,7 @@ class T1z_Incremental_Backup_WP_Plugin {
             $filename = $this->inc_bak->get_latest_zip_filename();
         }
         else $filename = $_GET['filename'];
-        $fullpath = "{$this->inc_bak->output_dir}/$filename";
-        header("Content-type: application/zip"); 
-        header("Content-Disposition: attachment; filename=$filename");
-        header("Content-length: " . filesize($fullpath));
-        header("Pragma: no-cache"); 
-        header("Expires: 0"); 
-        readfile($fullpath);
-        // unlink($fullpath);
+        $this->inc_bak->download_file($filename);
         exit;
     }
 }
