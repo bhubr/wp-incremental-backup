@@ -5,7 +5,7 @@
  * Description: Create incremental backups of WordPress files&db
  * Author: t1z
  * Author URI: https://github.com/t1z
- * Version: 0.4.3
+ * Version: 0.4.5
  *
  * ChangeLog
  * 0.2.0 First public version
@@ -30,6 +30,8 @@
  *       (http://stackoverflow.com/questions/23817787/bash-bin-tar-argument-list-too-long-when-compressing-many-files-with-tar)
  * 0.4.2 push forgotten constants file
  * 0.4.3 allow generate&download only by admins
+ * 0.4.4 fix how we get latest zip (glob not scandir)
+ * 0.4.5 add a log function
  *
  * ToDo
  *   - exclude output_dirs
