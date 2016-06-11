@@ -347,7 +347,7 @@ class T1z_Incremental_Backup {
     }
 
     public function generate_backup() {
-        error_log(__CLASS__ ."::" . __FUNCTION__ . "#1 before prepare_files_archive");
+        error_log(__CLASS__ ."::" . __FUNCTION__ . " {$this->output_file_prefix} #1 before prepare_files_archive");
         $result = $this->prepare_files_archive();
         error_log(__CLASS__ ."::" . __FUNCTION__ . "#2 before prepare_sql_dump");
         $this->prepare_sql_dump(DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
