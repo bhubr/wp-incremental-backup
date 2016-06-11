@@ -38,6 +38,7 @@ class T1z_Incremental_Backup {
         $this->output_dir = $this->output_root_dir . DIRECTORY_SEPARATOR . $output_set_id;
         $this->output_file_prefix = $output_file_prefix;
         $this->output_fullpath_prefix = $this->output_dir . DIRECTORY_SEPARATOR . $output_file_prefix;
+        $this->output_log = $this->output_fullpath_prefix . '_log.csv';
 
         if (! is_dir($this->output_dir)) {
             $dir_created = mkdir($this->output_dir, 0777, true);
@@ -309,11 +310,29 @@ class T1z_Incremental_Backup {
         $this->write_archive($files_to_archive);
 
         fclose($this->fh);
+        // Log what whas done
+        $this->log([
+            'new'      => $files_new,
+            'modified' => array_keys($files_modified),
+            'deleted'  => $files_to_delete
+        ]);
 
         return [
             'new'      => $files_new,
             'modified' => $files_modified,
             'deleted'  => $files_to_delete
         ];
+    }
+
+    private function log($changeset) {
+        // var_dump($changeset);die();
+        $fh = fopen($this->output_log, "w");
+        foreach($changeset as $status_flag => $files) {
+            foreach($files as $file) {
+                $path_from_root = $this->filename_from_root($file);
+                fwrite($fh, "\"$status_flag\",\"$path_from_root\"\n");
+            }
+        }
+        fclose($fh);
     }
 }
