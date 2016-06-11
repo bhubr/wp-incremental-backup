@@ -30,7 +30,7 @@
 <?php endforeach; ?>
 </ul>
 
-<?php if($is_post): ?>
+<?php if(false): ?>
 <h3>Process results</h3>
 	<h4>New files</h4>
 	<ul>
@@ -57,4 +57,9 @@
 <form action="admin-ajax.php?action=wpib_generate" method="POST">
 	<input type="submit" class="button" value="Run" />
 </form>
+<form action="" method="POST">
+	<input type="hidden" name="reset_activation_id" />
+	<input type="submit" class="button" value="Reset Activation ID" />
+</form>
+
 <?php endif; ?>
