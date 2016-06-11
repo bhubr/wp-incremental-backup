@@ -347,10 +347,15 @@ class T1z_Incremental_Backup {
     }
 
     public function generate_backup() {
+        error_log(__CLASS__ ."::" . __FUNCTION__ . "#1 before prepare_files_archive");
         $result = $this->prepare_files_archive();
+        error_log(__CLASS__ ."::" . __FUNCTION__ . "#2 before prepare_sql_dump");
         $this->prepare_sql_dump(DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
+        error_log(__CLASS__ ."::" . __FUNCTION__ . "#3 before prepare_zip");
         $this->prepare_zip();
+        error_log(__CLASS__ ."::" . __FUNCTION__ . "#4 before cleanup");
         if (CLEANUP_AFTER_ZIP) $this->cleanup_tar_and_sql();
+        error_log(__CLASS__ ."::" . __FUNCTION__ . "#5 all done");
         return $this->get_latest_zip_filename();
     }
 
