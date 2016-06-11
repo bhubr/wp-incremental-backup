@@ -31,7 +31,7 @@ class T1z_Incremental_Backup_WP_Plugin {
         add_action('admin_init', [$this, 'get_activation_id_and_setup']);
         add_action('wp_ajax_wpib_download', [$this, 'download_file']);
         add_action('wp_ajax_wpib_generate', [$this, 'generate_backup']);
-        register_activation_hook( __FILE__, [$this, 'set_activation_id'] );
+        register_activation_hook( __FILE__, [$this, 'reset_activation_id'] );
     }
 
 
@@ -81,7 +81,7 @@ class T1z_Incremental_Backup_WP_Plugin {
     }
 
 
-    public function set_activation_id() {
+    public function reset_activation_id() {
         $this->activation_id = base_convert(time(), 10, 36);
         update_option( 'wpib_activation_id', $this->activation_id, true );
     }
@@ -119,6 +119,10 @@ class T1z_Incremental_Backup_WP_Plugin {
     public function wpib_options_page() {
         if(isset($_GET['do_cleanup']) && $_GET['do_cleanup'] == 1) {
             $this->inc_bak->output_dir_content_cleanup();
+        }
+        if($_SERVER['REQUEST_METHOD'] && isset($_POST['reset_activation_id'])) {
+            $this->reset_activation_id();
+            wp_safe_redirect( wp_get_referer() );
         }
         $files = $this->inc_bak->get_output_dir_content();
         $params = $this->inc_bak->get_params();
