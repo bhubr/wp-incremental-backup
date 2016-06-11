@@ -60,12 +60,12 @@ class T1z_Incremental_Backup_WP_Plugin {
     public function get_activation_id_and_setup() {
         $input_dir = get_home_path();
         $output_dir = get_home_path() . "wp-content/uploads/wp-incremental-backup-output";
-        $activation_id = get_option('wpib_activation_id', true);
+        $this->activation_id = get_option('wpib_activation_id', true);
         $sanitized_blog_name = sanitize_title(get_option('blogname'));
         $output_file_prefix = $sanitized_blog_name . '_' . date("Ymd-His");
 
         try {
-            $this->inc_bak = new T1z_Incremental_Backup($input_dir, $output_dir, $activation_id, $output_file_prefix);    
+            $this->inc_bak = new T1z_Incremental_Backup($input_dir, $output_dir, $this->activation_id, $output_file_prefix);    
         } catch(Exception $e) {
             add_action( 'admin_notices', [$this, 'admin_notice__error'] );
         }
@@ -82,8 +82,8 @@ class T1z_Incremental_Backup_WP_Plugin {
 
 
     public function set_activation_id() {
-        $activation_id = base_convert(time(), 10, 36);
-        update_option( 'wpib_activation_id', $activation_id, true );
+        $this->activation_id = base_convert(time(), 10, 36);
+        update_option( 'wpib_activation_id', $this->activation_id, true );
     }
 
     public function admin_notice__error() {
