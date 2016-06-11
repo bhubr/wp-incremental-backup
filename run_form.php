@@ -10,6 +10,10 @@
 		<td>Server software</td>
 		<td><?php echo $this->server_soft; ?></td>
 	</tr>
+	<tr>
+		<td>Activation id</td>
+		<td><?php echo $this->activation_id; ?></td>
+	</tr>
 	<?php foreach ($params as $key => $value): ?>
 		<tr>
 			<td><?php echo $key; ?></td>
