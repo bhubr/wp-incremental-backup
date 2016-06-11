@@ -8,3 +8,5 @@ vendor/phpspec/
 vendor/phpunit/
 vendor/sebastian/
 vendor/symfony/
+vendor/filp/
+vendor/webmozart/

@@ -1,8 +1,9 @@
 <?php
 use Ifsnop\Mysqldump as IMysqldump;
 require 'vendor/autoload.php';
-
 require 'common/constants.php';
+require 'class-t1z-wpib-exception.php';
+define('CLEANUP_AFTER_ZIP', false);
 
 class T1z_Incremental_Backup {
 
@@ -115,9 +116,7 @@ class T1z_Incremental_Backup {
      * Add a file to output
      */
     private function add_file($name) {
-        $this->cnt++;
         $md5 = md5_file($name);
-        // echo "$name $md5\n";
         fwrite($this->fh, $this->line($name, $md5));
         return $md5;
     }
@@ -139,7 +138,6 @@ class T1z_Incremental_Backup {
             if (is_null($line_read)) {
                 throw new Exception("invalid handle, aborting");
             }
-            
             $name = $line_read[0];
             $md5 = $line_read[1];
             $this->files[$name] = $md5;
@@ -194,8 +192,14 @@ class T1z_Incremental_Backup {
         }, $files_to_archive);
         $file_list = implode("\n", $files);
         file_put_contents($list, $file_list);
-        $cmd = "cd {$this->input_dir}; tar c -T {$list} -f {$this->output_fullpath_prefix}.tar{$args}";
-        shell_exec($cmd);
+        $tarfile = "{$this->output_fullpath_prefix}.tar";
+        $cmd = "cd {$this->input_dir}; tar cv -T {$list} -f $tarfile";
+        $output = [];
+        $return_var = 0;
+        exec($cmd, $output, $return_var);
+        if ($return_var !== 0) {
+            throw new T1z_WPIB_Exception("Error while creating output TAR file {$tarfile}", T1z_WPIB_Exception::FILES);    
+        }
     }
 
     /**
@@ -221,8 +225,8 @@ class T1z_Incremental_Backup {
         $zip = new ZipArchive();
         $filename = "{$this->output_fullpath_prefix}.zip";
 
-        if ($zip->open($filename, ZipArchive::CREATE)!==TRUE) {
-            throw new Exception("Could not open ZIP archive <$filename>\n");
+        if ($zip->open($filename, ZipArchive::CREATE) !== true) {
+            throw new T1z_WPIB_Exception("Could not open ZIP archive $filename\n", T1z_WPIB_Exception::ZIP);
         }
 
         $zip->addFile("{$this->output_fullpath_prefix}.sql","{$this->output_file_prefix}.sql");
@@ -236,8 +240,12 @@ class T1z_Incremental_Backup {
      * Dump SQL
      */
     public function prepare_sql_dump($host, $db, $user, $pass) {
-        $dump = new IMysqldump\Mysqldump("mysql:host={$host};dbname={$db}", $user, $pass);
-        $dump->start("{$this->output_fullpath_prefix}.sql");
+        try {
+            $dump = new IMysqldump\Mysqldump("mysql:host={$host};dbname={$db}", $user, $pass);
+            $dump->start("{$this->output_fullpath_prefix}.sql");
+        } catch (\Exception $e) {
+            throw new T1z_WPIB_Exception($e->getMessage(), T1z_WPIB_Exception::MYSQL);
+        }
     }
 
     /**
@@ -251,6 +259,9 @@ class T1z_Incremental_Backup {
         $files_modified = [];
 
         $this->fh = fopen($this->output_list_csv, "w");
+        if($this->fh === false) {
+            throw new T1z_WPIB_Exception("Could not open output CSV file in write mode: {$this->output_list_csv}", T1z_WPIB_Exception::FILES);
+        }
 
         $objects = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($this->input_dir),
@@ -265,7 +276,7 @@ class T1z_Incremental_Backup {
                 unlink($object->getPathname());
                 continue;
             }
-            
+
             // Skip if this is . or .. or output dir 
             if($this->is_special_dir($object) || $this->is_output_dir($object)) {
                 continue;
@@ -283,7 +294,6 @@ class T1z_Incremental_Backup {
                 // echo "new file: $name<br>";
                 $files_new[] = $name;
                 $files_to_archive[] = $name;
-                // error_log("new file: $name");
                 continue;
             }
             $old_md5 = $this->get_md5($name);
@@ -334,5 +344,24 @@ class T1z_Incremental_Backup {
             }
         }
         fclose($fh);
+    }
+
+    public function generate_backup() {
+        $result = $this->prepare_files_archive();
+        $this->prepare_sql_dump(DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
+        $this->prepare_zip();
+        if (CLEANUP_AFTER_ZIP) $this->cleanup_tar_and_sql();
+        return $this->get_latest_zip_filename();
+    }
+
+    public function download_file() {
+        $fullpath = "{$this->inc_bak->output_dir}/$filename";
+        header("Content-type: application/zip");
+        header("Content-Disposition: attachment; filename=$filename");
+        header("Content-length: " . filesize($fullpath));
+        header("Pragma: no-cache"); 
+        header("Expires: 0"); 
+        readfile($fullpath);
+        // unlink($fullpath);
     }
 }

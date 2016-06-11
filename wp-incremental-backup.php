@@ -32,6 +32,7 @@
  * 0.4.3 allow generate&download only by admins
  * 0.4.4 fix how we get latest zip (glob not scandir)
  * 0.4.5 add a log function
+ * 0.5.0 add more elaborate error handling
  *
  * ToDo
  *   - exclude output_dirs
@@ -47,10 +48,11 @@
  * - delete theme
  * - edit plugin/theme file
  */
-
+require 'vendor/autoload.php';
 require 'class-t1z-incremental-backup-wp-plugin.php';
-
-// $args = !isset($argv) ? [ 'root' => $_GET['root'], 'domain' => $_GET['domain'] ] :
-//     [ 'root' => $argv[1], 'domain' => $argv[2] ];
-// $args['root'], $args['domain']
+if (WP_DEBUG === true) {
+    $whoops = new \Whoops\Run;
+    $whoops->pushHandler(new \Whoops\Handler\PrettyPageHandler);
+    $whoops->register();
+}
 $walker = new T1z_Incremental_Backup_WP_Plugin();
