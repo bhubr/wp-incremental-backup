@@ -1,7 +1,7 @@
 <?php
 
 define('WPIB_CLIENT_DEBUG_MODE', true);
-define('WPIB_CLIENT_DEBUG_LEN', 4000);
+define('WPIB_CLIENT_DEBUG_LEN', 400);
 define('BACKUP_ROOT', '/Volumes/Backup/Geek/Sites');
 
 require realpath(__DIR__ . '/../common/constants.php');
@@ -96,7 +96,9 @@ class T1z_WP_Incremental_Backup_Client {
 	 * POST request to sign in to WordPress
 	 */
 	private function post_login($config) {
-		$postdata = "log=". $config['username'] ."&pwd=". $config['password'] ."&wp-submit=Log%20In&redirect_to=". $config['url'] ."wp-admin/&testcookie=1";
+		$postdata = "log=". $config['username'] ."&pwd=". urlencode($config['password']) ."&wp-submit=Log%20In&redirect_to=". $config['url'] ."wp-admin/&testcookie=1";
+		// die($config['password']);
+
 		curl_setopt ($this->ch, CURLOPT_POSTFIELDS, $postdata);
 		curl_setopt ($this->ch, CURLOPT_POST, 1);
 		$result = curl_exec ($this->ch);
@@ -113,8 +115,10 @@ class T1z_WP_Incremental_Backup_Client {
 		curl_setopt ($this->ch, CURLOPT_POSTFIELDS, "");
 		// Send request and die on cURL error
 		$json_response = curl_exec ($this->ch);
+		var_dump($json_response);
 		if ($json_response === false) die("[post_generate_backup] cURL error: " . curl_error($this->ch));
 		$parsed_response = json_decode($json_response);
+		var_dump($parsed_response);
 		// Parse response and die on error
 		if ($parsed_response->success === false) {
 			die("[post_generate_backup] error:\n * type: {$parsed_response->error_type}\n * details: {$parsed_response->error_details}\n");
@@ -135,6 +139,7 @@ class T1z_WP_Incremental_Backup_Client {
 		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/admin-ajax.php?action=wpib_download");
 		curl_setopt ($this->ch, CURLOPT_POST, 0);
 		$data = curl_exec ($this->ch);
+		if (WPIB_CLIENT_DEBUG_MODE) file_put_contents(__DIR__ . '/fetch.html', $data);
 		if (! $data) die("[get_fetch_backup_and_concat] cURL error: " . curl_error($this->ch) . "\n");
 
 		$dest_dir_prefix = $this->get_destination_dir($site);

@@ -360,7 +360,7 @@ class T1z_Incremental_Backup {
     }
 
     public function download_file() {
-        $fullpath = "{$this->inc_bak->output_dir}/$filename";
+        $fullpath = "{$this->output_dir}/$filename";
         header("Content-type: application/zip");
         header("Content-Disposition: attachment; filename=$filename");
         header("Content-length: " . filesize($fullpath));
