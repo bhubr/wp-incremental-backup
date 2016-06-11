@@ -359,7 +359,7 @@ class T1z_Incremental_Backup {
         return $this->get_latest_zip_filename();
     }
 
-    public function download_file() {
+    public function download_file($filename) {
         $fullpath = "{$this->output_dir}/$filename";
         header("Content-type: application/zip");
         header("Content-Disposition: attachment; filename=$filename");
