@@ -1,5 +1,6 @@
 <?php
 require 'class-t1z-incremental-backup.php';
+require 'class-thread.php';
 
 class T1z_Incremental_Backup_WP_Plugin {
 
@@ -126,6 +127,9 @@ class T1z_Incremental_Backup_WP_Plugin {
         }
         $files = $this->inc_bak->get_output_dir_content();
         $params = $this->inc_bak->get_params();
+        $has_thread = Thread::isAvailable() ? 'yes' : '<b>no</b>';
+        exec('uname -a', $uname_out, $ret);
+        $uname = $uname_out[0];
         include 'run_form.php';
     }
 
