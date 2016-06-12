@@ -43,6 +43,41 @@ class T1z_Incremental_Backup {
     private $start_timestamp;
 
     /**
+     * Datetime (YYYYMMDD-His)
+     */
+    private $datetime;
+
+    /**
+     * MD5 per file list
+     */
+    private $md5_csv_file;
+
+    /**
+     * File list to feed tar
+     */
+    private $tar_file_src_list;
+
+    /**
+     * Deleted files list
+     */
+    private $deleted_files_list;
+
+    /**
+     * Output TAR file
+     */
+    private $tar_file;
+
+    /**
+     * Output SQL dump
+     */
+    private $sql_dump;
+
+    /**
+     * Output ZIP file
+     */
+    private $zip_file;
+
+    /**
      * Task running
      */
     private $running_task = "";
@@ -53,7 +88,8 @@ class T1z_Incremental_Backup {
         $this->output_root_dir = $output_root_dir;
         $this->output_set_id = $output_set_id;
         $this->output_dir = $this->output_root_dir . DIRECTORY_SEPARATOR . $output_set_id;
-        $this->output_file_prefix = $output_file_prefix;
+        $this->datetime = date("Ymd-His");
+        $this->output_file_prefix = $output_file_prefix . '_' . $this->datetime;
         $this->output_fullpath_prefix = $this->output_dir . DIRECTORY_SEPARATOR . $output_file_prefix;
         $this->progress = "{$this->output_fullpath_prefix}.run";
         $this->output_log = $this->output_fullpath_prefix . '_log.csv';
@@ -64,35 +100,30 @@ class T1z_Incremental_Backup {
             if (! $dir_created) throw new Exception("Could not create output_dir: {$this->output_dir}");
         }
 
-        $this->output_list_csv = $this->output_dir . "/list.csv";
-
+        $this->md5_csv_file = $this->output_dir . "/list.csv";
+        $this->tar_file_src_list = $this->output_dir . DIRECTORY_SEPARATOR . 'archive.txt';
+        $this->deleted_files_list = $this->input_dir . '__deleted_files__.txt'; 
+        $this->tar_file = $this->output_fullpath_prefix . '.tar';
+        $this->sql_file = $this->output_fullpath_prefix . '.sql';
+        $this->zip_file = $this->output_fullpath_prefix . '.zip';
         $this->setup_steps();
     }
 
     private function setup_steps() {
-        $this->step_descriptors = [
-            'md5'  => [
-                'output' => $this->output_list_csv,
-            ],
-            'list' => [
-                'output' => $this->output_list_csv,
-            ],
-            'tar'  => [
-                'output' => $this->output_list_csv,
-            ],
-            'sql'  => [
-                'output' => $this->output_list_csv,
-            ],
-            'zip'  => [
-                'output' => $this->output_list_csv,
-            ]
+        $this->output_files = [
+            'md5'   => [$this->md5_csv_file, $this->tar_file_src_list],
+            'lists' => [$this->tar_file_src_list, $this->deleted_files_list],
+            'tar'   => $this->tar_file,
+            'sql'   => $this->sql_file,
+            'zip'   => $this->zip_file
         ];
-        $this->steps = array_keys($this->step_descriptors);
+        $this->steps = array_keys($this->output_files);
+        // var_dump($this);die();
     }
 
-    private function get_output_file($step) {
-        $descriptor = $this->step_descriptors[$step];
-        return $descriptor['output'];
+    private function get_output_files($step) {
+        $files = $this->output_files[$step];
+        return is_array($files) ? $files : [$files];
     }
 
     public function get_params() {
@@ -122,51 +153,23 @@ class T1z_Incremental_Backup {
         }
     }
 
-    /**
-     * Get filename, stripped from root dir (wp installation base dir)
-     */
-    private function filename_from_root($filename) {
-        $prefix_len = strlen($this->input_dir);
-        $last_char = $this->input_dir[$prefix_len - 1];
-        $prefix_len += ($last_char === '/') ? 0 : 1;
-        return substr($filename, $prefix_len);
-    }
-
-    /**
-     * Write archive file list
-     */
-    private function write_archive_list($files_to_archive) {
-        $list = "{$this->output_fullpath_prefix}_tar_list.txt";
-        echo "write start: " . $this->current_time_diff() . "<br>";
-        if (empty($files_to_archive)) {
-            return;
-        }
-        
-        $fh = fopen($list, 'w');
-        $files = array_map(function($file) {
-            return $this->filename_from_root($file);
-        }, $files_to_archive);
-        $file_list = implode("\n", $files);
-        file_put_contents($list, $file_list);
-        echo "write end: " . $this->current_time_diff() . "<br>";
-    }
-
     private function get_cmd($step) {
-        $tarfile = "{$this->output_fullpath_prefix}.tar";
-        $zipfile = "{$this->output_fullpath_prefix}.zip";
-        $md5file = $this->output_list_csv;
+        // $tarfile = "{$this->output_fullpath_prefix}.tar";
+        // $zipfile = "{$this->output_fullpath_prefix}.zip";
+        // $md5file = $this->md5_csv_file;
         switch($step) {
             case 'md5':
-                return "php " . __DIR__ . "/md5_walk.php $md5file {$this->input_dir}";
+                return "php " . __DIR__ . "/md5_walk.php %s %s {$this->input_dir}";
+            case 'lists':
+                return "php " . __DIR__ . "/deleted_walk.php %s %s {$this->input_dir}";
             case 'tar':
-                $list = $this->output_dir . DIRECTORY_SEPARATOR . 'archive.txt';
-                return "cd {$this->input_dir}; %s cv -T {$list} -f %s";
+                return "cd {$this->input_dir}; tar c -T {$this->tar_file_src_list} -f %s";
             case 'zip':
-                $args = "{$this->output_file_prefix}.sql";
-                if (file_exists($tarfile)) {
-                    $args .= " {$this->output_file_prefix}.tar";
+                $to_zip = $this->sql_file;
+                if (file_exists($this->tar_file)) {
+                    $to_zip .= " " . $this->tar_file;
                 }
-                return "cd {$this->output_dir}; zip $zipfile $args";
+                return "cd {$this->output_dir}; zip {$this->zip_file} $to_zip";
             default:
                 return "ls {$md5file}";
 
@@ -202,7 +205,7 @@ class T1z_Incremental_Backup {
 
     private function not_about_to_timeout() {
         // return $this->current_time_diff() < $this->php_timeout / 2;
-        return $this->current_time_diff() < 4;
+        return $this->current_time_diff() < 60;
     }
 
     private function check_is_running() {
@@ -226,16 +229,19 @@ class T1z_Incremental_Backup {
         return false;
     }
 
-    private function start_background_task($cmd_format, $generated_file, $cmd_bin, $st_output_dir_sz) {
-        $cmd = sprintf($cmd_format, $cmd_bin, $generated_file);
-        $cmdoutfile = "{$this->output_fullpath_prefix}_{$cmd_bin}_out.txt";
-        $pidfile = "{$this->output_fullpath_prefix}_{$cmd_bin}.pid";
+    private function start_background_task($st_output_dir_sz, $cmd_format, $step, $generated_file1, $generated_file2 = "") {
+        $func_args = func_get_args();
+        $sprintf_args = array_slice($func_args, 3);
+        $cmd = vsprintf($cmd_format, $sprintf_args);
+        die($cmd);
+        $cmdoutfile = "{$this->output_fullpath_prefix}_{$step}_out.txt";
+        $pidfile = "{$this->output_fullpath_prefix}_{$step}.pid";
         $bg = new diversen\bgJob();
         $bg->execute($cmd, $cmdoutfile, $pidfile);
         $this->pid = trim(file_get_contents($pidfile));
-        $this->running_task = $cmd_bin . ':' . $this->pid . ':' . $st_output_dir_sz;
+        $this->running_task = $step . ':' . $this->pid . ':' . $st_output_dir_sz;
         file_put_contents($this->progress, $this->running_task);
-        $this->file_wip = $generated_file;
+        // $this->file_wip = $generated_file;
         return $this->check_running_task_loop();
     }
 
@@ -289,96 +295,6 @@ class T1z_Incremental_Backup {
         }
     }
 
-    /**
-     * Recurse wp installation
-     */
-    public function prepare_files_archive() {
-        echo "prepare start: " . $this->current_time_diff() . "<br>";
-        $found_in_dirs = [];
-        $files_to_archive = [];
-        $files_to_delete = [];
-        $files_new = [];
-        $files_modified = [];
-
-        $this->fh = fopen($this->output_list_csv, "w");
-        if($this->fh === false) {
-            throw new T1z_WPIB_Exception("Could not open output CSV file in write mode: {$this->output_list_csv}", T1z_WPIB_Exception::FILES);
-        }
-
-        $objects = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($this->input_dir),
-            RecursiveIteratorIterator::SELF_FIRST
-        );
-
-        // Iterate directory
-        foreach($objects as $name => $object) {
-
-            // Skip deleted files list => delete it
-            if($object->getFilename() === FILES_TO_DELETE) {
-                unlink($object->getPathname());
-                continue;
-            }
-
-            // Skip if this is . or .. or output dir 
-            if($this->is_special_dir($object) || $this->is_output_dir($object)) {
-                continue;
-            }
-
-            // Add dir
-            if(!$this->is_regular_file($object)) {
-                $this->add_dir($name);
-                continue;
-            }
-            $found_in_dirs[] = $name;
-
-            $md5 = $this->add_file($name);
-            if($this->first_run || !array_key_exists($name, $this->files)) {
-                // echo "new file: $name<br>";
-                $files_new[] = $name;
-                $files_to_archive[] = $name;
-                continue;
-            }
-            $old_md5 = $this->get_md5($name);
-            if($md5 !== $old_md5) {
-                // echo "<em>modified</em> file: $name (old md5 = $old_md5, new md5 = $md5)<br>";
-                $files_modified[$name] = [$old_md5, $md5];
-                $files_to_archive[] = $name;
-            }
-
-        }
-
-        // Iterate existing files from previous backup's list
-        foreach($this->files as $name => $md5) {
-            if (!empty($md5) && array_search($name, $found_in_dirs) === false) {
-                // echo "<em>deleted</em> file: $name<br>";
-                $files_to_delete[] = $name;
-            }
-        }
-        $deleted_list_file = $this->write_files_to_delete($files_to_delete);
-        if (!empty($deleted_list_file)) {
-            $files_to_archive[] = $deleted_list_file;
-        }
-        echo "prepare end: " . $this->current_time_diff() . "<br>";
-
-
-        // $this->write_tar_archive($files_to_archive);
-        fclose($this->fh);
-
-        $this->write_archive_list($files_to_archive);
-
-        // Log what whas done
-        $this->log([
-            'new'      => $files_new,
-            'modified' => array_keys($files_modified),
-            'deleted'  => $files_to_delete
-        ]);
-
-        return [
-            'new'      => $files_new,
-            'modified' => $files_modified,
-            'deleted'  => $files_to_delete
-        ];
-    }
 
     private function log($changeset) {
         // var_dump($changeset);die();
@@ -413,8 +329,13 @@ class T1z_Incremental_Backup {
         return $size_in_kb;
     }
 
-    public function generate_backup() {
+    private function json_response($data) {
+        $response_payload = json_encode($data);
+        header("Content-type: application/json");
+        die($response_payload);
+    }
 
+    public function generate_backup() {
         $step = $this->get_step_param();
         // $step_descriptor = $steps[$step];
         $st_timestamp = $this->current_time_diff();
@@ -422,11 +343,16 @@ class T1z_Incremental_Backup {
 
         // $result = $this->prepare_files_archive();
         $cmd = $this->get_cmd($step);
-        $output = $this->get_output_file($step);
-        // die($output);
-        $done = $this->start_background_task($cmd, $output, $step, $st_output_dir_sz);
+        $task_args = array_merge(
+            [$st_output_dir_sz, $cmd, $step],
+            $this->get_output_files($step)
+        );
+        var_dump($task_args);
+
+        $done = call_user_func_array([$this, 'start_background_task'], $task_args);
         $output_dir_size_diff = $this->get_output_dir_size() - $st_output_dir_sz;
         $status = [
+            'datetime' => $datetime,
             'step' => $step,
             'done' => $done,
             'pid'  => ! $done ? (int)$this->pid : null,
@@ -435,11 +361,10 @@ class T1z_Incremental_Backup {
         $step_num = $this->step_num_progress($step);
         $status['step_index'] = $step_num['index'];
         $status['step_of_total'] = $step_num['of_total'];
-        $response_payload = json_encode($status);
-        header("Content-type: application/json");
-        die($response_payload);
+        $this->json_response($status);
 
-        echo "sz start: $st_output_dir_sz, diff: $output_dir_size_diff ";        $time_elapsed = $this->current_time_diff() - $st_timestamp;
+        echo "sz start: $st_output_dir_sz, diff: $output_dir_size_diff ";
+        $time_elapsed = $this->current_time_diff() - $st_timestamp;
         // $this->write_sql_dump(DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
         // $this->write_zip_archive();
         // if (CLEANUP_AFTER_ZIP) $this->cleanup_tar_and_sql();

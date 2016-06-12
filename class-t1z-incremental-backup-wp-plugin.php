@@ -64,8 +64,8 @@ class T1z_Incremental_Backup_WP_Plugin {
         $output_dir = get_home_path() . "wp-content/uploads/wp-incremental-backup-output";
         $this->activation_id = get_option('wpib_activation_id', true);
         $sanitized_blog_name = sanitize_title(get_option('blogname'));
-        $output_file_prefix = $sanitized_blog_name . '_' . date("Ymd-His");
-
+        $output_file_prefix = $sanitized_blog_name;
+ 
         try {
             $this->inc_bak = new T1z_Incremental_Backup($input_dir, $output_dir, $this->activation_id, $output_file_prefix);    
         } catch(Exception $e) {
@@ -146,11 +146,13 @@ class T1z_Incremental_Backup_WP_Plugin {
         $files = $this->inc_bak->get_output_dir_content();
         $params = $this->inc_bak->get_params();
         $has_thread = Thread::isAvailable() ? 'yes' : '<b>no</b>';
-        exec('uname -a', $uname_out, $ret);
+        exec('uname -a 2>&1', $uname_out, $ret);
         $uname = $uname_out[0];
-        exec('which zip', $which_zip_out, $ret);
+        exec('php -v 2>&1', $php_out, $ret);
+        $php_version = $php_out[0];
+        exec('which zip 2>&1', $which_zip_out, $ret);
         $zip_bin = count($which_zip_out) ? $which_zip_out[0] : "n/a";
-        exec('which mysqldump', $which_msd_out, $ret);
+        exec('which mysqldump 2>&1', $which_msd_out, $ret);
         $mysqldump_bin = count($which_msd_out) ? $which_msd_out[0] : "n/a";
 
         // http://stackoverflow.com/questions/1733507/how-to-get-size-of-mysql-database

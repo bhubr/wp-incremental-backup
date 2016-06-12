@@ -15,6 +15,10 @@
 		<td><?php echo $uname; ?></td>
 	</tr>
 	<tr>
+		<td>PHP version</td>
+		<td><?php echo $php_version; ?></td>
+	</tr>
+	<tr>
 		<td>zip binary</td>
 		<td><?php echo $zip_bin; ?></td>
 	</tr>
