@@ -113,25 +113,39 @@ class T1z_WP_Incremental_Backup_Client {
 		// clear POST data
 		curl_setopt ($this->ch, CURLOPT_POSTFIELDS, "");
 		// base URL (step param will be appended later)
-		$base_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_generate";
+		$gen_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_generate";
+		$check_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_check_progress";
 		// various steps of process
-		$steps = ['list', 'tar', 'sql', 'zip'];
+		$steps = ['md5', 'list', 'tar', 'sql', 'zip'];
 		foreach($steps as $step) {
-			curl_setopt ($this->ch, CURLOPT_URL, "$base_url&step=$step");
+			curl_setopt ($this->ch, CURLOPT_URL, "$gen_url&step=$step");
+			echo "$step ==> generate ($gen_url&step=$step)\n";
 			// Send request and die on cURL error
 			$json_response = curl_exec ($this->ch);
 			$http_code = curl_getinfo($this->ch, CURLINFO_HTTP_CODE);
 			if ($http_code !== 200) {
 				die("HTTP error: $json_response\n");
 			}
-			
+			var_dump($json_response);
 			if ($json_response === false) die("[post_generate_backup] cURL error: " . curl_error($this->ch));
 			$parsed_response = json_decode($json_response);
+			// var_dump($parsed_response);
 			// Parse response and die on error
-			if ($parsed_response->success === false) {
-				die("[post_generate_backup] error:\n * type: {$parsed_response->error_type}\n * details: {$parsed_response->error_details}\n");
+			curl_setopt ($this->ch, CURLOPT_URL, "$check_url&step=$step");
+			while($parsed_response->done === false) {
+				echo "$step ==> check ($check_url&step=$step)\n";
+				
+
+				$json_response = curl_exec ($this->ch);
+				$parsed_response = json_decode($json_response);
+				var_dump($json_response);
+				sleep(1);
 			}
-			$this->zip_filename = $parsed_response->zip_filename;
+
+			// if ($parsed_response->success === false) {
+			// 	die("[post_generate_backup] error:\n * type: {$parsed_response->error_type}\n * details: {$parsed_response->error_details}\n");
+			// }
+			// $this->zip_filename = $parsed_response->zip_filename;
 
 			if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST generate backup', $this->zip_filename);
 

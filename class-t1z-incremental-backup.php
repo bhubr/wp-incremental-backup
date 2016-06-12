@@ -74,10 +74,18 @@ class T1z_Incremental_Backup {
             'md5'  => [
                 'output' => $this->output_list_csv,
             ],
-            'list' => 'prepare_files_archive',
-            'tar'  => 'write_tar_archive',
-            'sql'  => 'write_sql_dump',
-            'zip'  => 'write_zip_archive'
+            'list' => [
+                'output' => $this->output_list_csv,
+            ],
+            'tar'  => [
+                'output' => $this->output_list_csv,
+            ],
+            'sql'  => [
+                'output' => $this->output_list_csv,
+            ],
+            'zip'  => [
+                'output' => $this->output_list_csv,
+            ]
         ];
         $this->steps = array_keys($this->step_descriptors);
     }
@@ -159,7 +167,8 @@ class T1z_Incremental_Backup {
                     $args .= " {$this->output_file_prefix}.tar";
                 }
                 return "cd {$this->output_dir}; zip $zipfile $args";
-            default:    
+            default:
+                return "ls {$md5file}";
 
         }
     }
@@ -192,8 +201,8 @@ class T1z_Incremental_Backup {
     }
 
     private function not_about_to_timeout() {
-        return $this->current_time_diff() < $this->php_timeout / 2;
-        // return $this->current_time_diff() < 4;
+        // return $this->current_time_diff() < $this->php_timeout / 2;
+        return $this->current_time_diff() < 4;
     }
 
     private function check_is_running() {
@@ -423,11 +432,14 @@ class T1z_Incremental_Backup {
             'pid'  => ! $done ? (int)$this->pid : null,
             'kb_written' => $output_dir_size_diff
         ];
-        var_dump($status);
-        die();
+        $step_num = $this->step_num_progress($step);
+        $status['step_index'] = $step_num['index'];
+        $status['step_of_total'] = $step_num['of_total'];
+        $response_payload = json_encode($status);
+        header("Content-type: application/json");
+        die($response_payload);
 
-        echo "sz start: $st_output_dir_sz, diff: $output_dir_size_diff ";
-        $time_elapsed = $this->current_time_diff() - $st_timestamp;
+        echo "sz start: $st_output_dir_sz, diff: $output_dir_size_diff ";        $time_elapsed = $this->current_time_diff() - $st_timestamp;
         // $this->write_sql_dump(DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
         // $this->write_zip_archive();
         // if (CLEANUP_AFTER_ZIP) $this->cleanup_tar_and_sql();
@@ -435,18 +447,17 @@ class T1z_Incremental_Backup {
     }
 
     function check_progress() {
-        $total = count($this->steps);
         try {
             $run = $this->get_latest_run_filename();
             // echo $run;
             $run_info = file_get_contents("{$this->output_dir}/$run");
             $info_bits = explode(':', $run_info);
-            var_dump($info_bits);
+            // var_dump($info_bits);
             $current_step = $info_bits[0];
             $this->pid = (int)$info_bits[1];
             $kb_before = (int)$info_bits[2];
         } catch(Exception $e) {
-            $current = 'done';
+            // $current = 'done';
         }
         $done = $this->check_running_task_loop();
         $output_dir_size_diff = $this->get_output_dir_size() - $kb_before;
@@ -456,12 +467,22 @@ class T1z_Incremental_Backup {
             'pid'  => ! $done ? (int)$this->pid : null,
             'kb_written' => $output_dir_size_diff
         ];
-        var_dump($status);die();
-        $index = array_search($current_step, $this->steps);
+        $step_num = $this->step_num_progress($current_step);
+        $status['step_index'] = $step_num['index'];
+        $status['step_of_total'] = $step_num['of_total'];
+        $response_payload = json_encode($status);
+        header("Content-type: application/json");
+        die($response_payload);
+
+    }
+
+    private function step_num_progress($current_step) {
+        $index = array_search($current_step, $this->steps) + 1;
+        $total = count($this->steps);
         $step_of_total = "$index/$total";
         return [
-            'current_step' => $current_step,
-            'current_of_total' => $step_of_total
+            'index' => $index,
+            'of_total' => $step_of_total
         ];
     }
 
