@@ -32,7 +32,8 @@ class T1z_Incremental_Backup_WP_Plugin {
         add_action('admin_init', [$this, 'get_activation_id_and_setup']);
         add_action('wp_ajax_wpib_download', [$this, 'download_file']);
         add_action('wp_ajax_wpib_generate', [$this, 'generate_backup']);
-        register_activation_hook( __FILE__, [$this, 'reset_activation_id'] );
+        add_action('wp_ajax_wpib_check_progress', [$this, 'check_progress']);
+        register_activation_hook( dirname(__FILE__) . DIRECTORY_SEPARATOR . 'wp-incremental-backup.php', [$this, 'plugin_activation'] );
     }
 
 
@@ -68,6 +69,7 @@ class T1z_Incremental_Backup_WP_Plugin {
         try {
             $this->inc_bak = new T1z_Incremental_Backup($input_dir, $output_dir, $this->activation_id, $output_file_prefix);    
         } catch(Exception $e) {
+            $this->message = __( 'Error: ' . $e->getMessage(), 'sample-text-domain' );
             add_action( 'admin_notices', [$this, 'admin_notice__error'] );
         }
 
@@ -81,6 +83,15 @@ class T1z_Incremental_Backup_WP_Plugin {
 
     }
 
+    public function plugin_activation() {
+        require 'class-t1z-incremental-backup-check.php';
+        $inc_bak_check = new T1z_Incremental_Backup_Check(
+            get_home_path() . "wp-content/uploads/wp-incremental-backup-output"
+        );
+        $result = $inc_bak_check->activation_test();
+        $this->reset_activation_id();
+    }
+
 
     public function reset_activation_id() {
         $this->activation_id = base_convert(time(), 10, 36);
@@ -89,7 +100,6 @@ class T1z_Incremental_Backup_WP_Plugin {
 
     public function admin_notice__error() {
         $class = 'notice notice-error';
-        $message = __( 'Irks! An error has occurred.', 'sample-text-domain' );
 
         printf( '<div class="%1$s"><p>%2$s</p></div>', $class, $this->message ); 
     }
@@ -107,12 +117,20 @@ class T1z_Incremental_Backup_WP_Plugin {
                 'zip_filename' => $generated_zip_file
             ]);
         } catch(\Exception $e) {
+            var_dump($e);die();
             $response_payload = json_encode([
                 'success' => false,
                 'error_type' => $e->getType(),
                 'error_details' => $e->getMessage()
             ]);
         }
+        header("Content-type: application/json");
+        die($response_payload);
+    }
+
+    public function check_progress() {
+        $progress = $this->inc_bak->check_progress();
+        $response_payload = json_encode($progress);
         header("Content-type: application/json");
         die($response_payload);
     }
@@ -130,6 +148,16 @@ class T1z_Incremental_Backup_WP_Plugin {
         $has_thread = Thread::isAvailable() ? 'yes' : '<b>no</b>';
         exec('uname -a', $uname_out, $ret);
         $uname = $uname_out[0];
+        exec('which zip', $which_zip_out, $ret);
+        $zip_bin = count($which_zip_out) ? $which_zip_out[0] : "n/a";
+        exec('which mysqldump', $which_msd_out, $ret);
+        $mysqldump_bin = count($which_msd_out) ? $which_msd_out[0] : "n/a";
+
+        $db_size_query = 'SELECT table_schema, Round(Sum(data_length + index_length) / 1024 / 1024, 1) "db_size" ' . 'FROM information_schema.tables WHERE table_schema = \'' . DB_NAME . '\' GROUP BY table_schema;';
+        global $wpdb;
+        $size_query_res = $wpdb->get_results($db_size_query);
+        $db_size = $size_query_res[0]->db_size;
+
         include 'run_form.php';
     }
 

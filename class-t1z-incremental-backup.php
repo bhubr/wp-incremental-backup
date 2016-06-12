@@ -32,14 +32,32 @@ class T1z_Incremental_Backup {
      */
     private $output_file_prefix;
 
+    /**
+     * PHP timeout
+     */
+    private $php_timeout;
+
+    /**
+     * Start timestamp
+     */
+    private $start_timestamp;
+
+    /**
+     * Task running
+     */
+    private $running_task = "";
+
     public function __construct($input_dir, $output_root_dir, $output_set_id, $output_file_prefix) {
+        $this->start_timestamp = time();
         $this->input_dir = $input_dir;
         $this->output_root_dir = $output_root_dir;
         $this->output_set_id = $output_set_id;
         $this->output_dir = $this->output_root_dir . DIRECTORY_SEPARATOR . $output_set_id;
         $this->output_file_prefix = $output_file_prefix;
         $this->output_fullpath_prefix = $this->output_dir . DIRECTORY_SEPARATOR . $output_file_prefix;
+        $this->progress = "{$this->output_fullpath_prefix}.run";
         $this->output_log = $this->output_fullpath_prefix . '_log.csv';
+        $this->php_timeout = ini_get('max_execution_time');
 
         if (! is_dir($this->output_dir)) {
             $dir_created = mkdir($this->output_dir, 0777, true);
@@ -178,28 +196,104 @@ class T1z_Incremental_Backup {
     }
 
     /**
-     * Write archive
+     * Write archive file list
      */
-    private function write_archive($files_to_archive) {
+    private function write_archive_list($files_to_archive, $list) {
+        echo "write start: " . $this->current_time_diff() . "<br>";
         if (empty($files_to_archive)) {
             return;
         }
-        $list = $this->output_dir . DIRECTORY_SEPARATOR . 'archive.txt';
+        
         $fh = fopen($list, 'w');
-
         $files = array_map(function($file) {
             return $this->filename_from_root($file);
         }, $files_to_archive);
         $file_list = implode("\n", $files);
         file_put_contents($list, $file_list);
+        echo "write end: " . $this->current_time_diff() . "<br>";
+    }
+
+    /**
+     * Write TAR archive
+     */
+    private function write_tar_archive($files_to_archive) {
+        $list = $this->output_dir . DIRECTORY_SEPARATOR . 'archive.txt';
+        $this->write_archive_list($files_to_archive, $list);
         $tarfile = "{$this->output_fullpath_prefix}.tar";
-        $cmd = "cd {$this->input_dir}; tar cv -T {$list} -f $tarfile";
-        $output = [];
-        $return_var = 0;
-        exec($cmd, $output, $return_var);
-        if ($return_var !== 0) {
-            throw new T1z_WPIB_Exception("Error while creating output TAR file {$tarfile}", T1z_WPIB_Exception::FILES);    
+        // $tar_lock = "{$tarfile}.lock";
+        // $cmd = "touch $tar_lock; cd {$this->input_dir}; tar cv -T {$list} -f $tarfile; rm $tar_lock";
+        $cmd = "cd {$this->input_dir}; %s cv -T {$list} -f %s";
+        // $output = [];
+        // $return_var = 0;
+        // $outputfile = "{$this->output_fullpath_prefix}_out.txt";
+        // $pidfile = "{$this->output_fullpath_prefix}_pid.txt";
+        // exec(sprintf("%s > %s 2>&1 & echo $! >> %s", $cmd, $outputfile, $pidfile));
+        $this->start_background_task($cmd, $tarfile, 'tar');
+
+        // exec($cmd, $output, $return_var);
+        // if ($return_var !== 0) {
+        //     throw new T1z_WPIB_Exception("Error while creating output TAR file {$tarfile}", T1z_WPIB_Exception::FILES);    
+        // }
+    }
+
+    private function current_time_diff() {
+        return time() - $this->start_timestamp;
+    }
+
+    private function not_about_to_timeout() {
+        return $this->current_time_diff() < $this->php_timeout / 2;
+    }
+
+    private function check_is_running() {
+        try{
+            $result = shell_exec(sprintf("ps %d", $this->pid));
+            var_dump($result);
+            if( count(preg_split("/\n/", $result)) > 2){
+                return true;
+            }
+        } catch(Exception $e){}
+
+        return false;
+    }
+
+    private function check_running_task_loop() {
+        while($this->not_about_to_timeout() && $this->check_is_running()) {
+            sleep(1);
+            echo $this->current_time_diff() . ' ' . $this->running_task . ' ' . $this->pid. ' ' . $this->file_wip . filesize($this->file_wip) . '<br>';
         }
+        die();
+    }
+
+    private function start_background_task($cmd_format, $generated_file, $cmd_bin) {
+        $cmd = sprintf($cmd_format, $cmd_bin, $generated_file);
+        $cmdoutfile = "{$this->output_fullpath_prefix}_{$cmd_bin}_out.txt";
+        $pidfile = "{$this->output_fullpath_prefix}_{$cmd_bin}.pid";
+        file_put_contents($this->progress, $this->running_task);
+        $bg = new diversen\bgJob();
+        $bg->execute($cmd, $cmdoutfile, $pidfile);
+        $this->running_task = $cmd_bin;
+        $this->pid = file_get_contents($pidfile);
+        $this->file_wip = $generated_file;
+        $this->check_running_task_loop();
+    }
+
+    function check_progress() {
+        $steps = ['', 'tar', 'dump', 'zip', 'done'];
+        $total = count($steps);
+        try {
+            $run = $this->get_latest_run_filename();
+            echo $run;
+            $current = file_get_contents("{$this->output_dir}/$run");    
+        } catch(Exception $e) {
+            $current = 'done';
+        }
+        
+        $index = array_search($current, $steps);
+        $step_of_total = "$index/$total";
+        return [
+            'current_step' => $current,
+            'current_of_total' => $step_of_total
+        ];
     }
 
     /**
@@ -218,17 +312,21 @@ class T1z_Incremental_Backup {
         return basename($filename);
     }
 
+    public function get_latest_run_filename() {
+        $files = glob("{$this->output_dir}/*.run");
+        $filename = array_pop($files);
+        return basename($filename);
+    }
+
     /**
      * Prepare zip archive from files tar archive and sql dump
      */
     public function prepare_zip() {
         $zip = new ZipArchive();
         $filename = "{$this->output_fullpath_prefix}.zip";
-
         if ($zip->open($filename, ZipArchive::CREATE) !== true) {
             throw new T1z_WPIB_Exception("Could not open ZIP archive $filename\n", T1z_WPIB_Exception::ZIP);
         }
-
         $zip->addFile("{$this->output_fullpath_prefix}.sql","{$this->output_file_prefix}.sql");
         if (file_exists("{$this->output_fullpath_prefix}.tar")) {
             $zip->addFile("{$this->output_fullpath_prefix}.tar","{$this->output_file_prefix}.tar");
@@ -252,6 +350,7 @@ class T1z_Incremental_Backup {
      * Recurse wp installation
      */
     public function prepare_files_archive() {
+        echo "prepare start: " . $this->current_time_diff() . "<br>";
         $found_in_dirs = [];
         $files_to_archive = [];
         $files_to_delete = [];
@@ -316,8 +415,10 @@ class T1z_Incremental_Backup {
         if (!empty($deleted_list_file)) {
             $files_to_archive[] = $deleted_list_file;
         }
+        echo "prepare end: " . $this->current_time_diff() . "<br>";
 
-        $this->write_archive($files_to_archive);
+
+        $this->write_tar_archive($files_to_archive);
 
         fclose($this->fh);
         // Log what whas done
@@ -347,15 +448,10 @@ class T1z_Incremental_Backup {
     }
 
     public function generate_backup() {
-        error_log(__CLASS__ ."::" . __FUNCTION__ . " {$this->output_file_prefix} #1 before prepare_files_archive");
         $result = $this->prepare_files_archive();
-        error_log(__CLASS__ ."::" . __FUNCTION__ . "#2 before prepare_sql_dump");
-        $this->prepare_sql_dump(DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
-        error_log(__CLASS__ ."::" . __FUNCTION__ . "#3 before prepare_zip");
-        $this->prepare_zip();
-        error_log(__CLASS__ ."::" . __FUNCTION__ . "#4 before cleanup");
-        if (CLEANUP_AFTER_ZIP) $this->cleanup_tar_and_sql();
-        error_log(__CLASS__ ."::" . __FUNCTION__ . "#5 all done");
+        // $this->prepare_sql_dump(DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
+        // $this->prepare_zip();
+        // if (CLEANUP_AFTER_ZIP) $this->cleanup_tar_and_sql();
         return $this->get_latest_zip_filename();
     }
 

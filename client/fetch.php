@@ -46,7 +46,7 @@ class T1z_WP_Incremental_Backup_Client {
 		$cookie = tempnam ("/tmp", "CURLCOOKIE");
 		curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
 		curl_setopt ($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6");
-		curl_setopt ($ch, CURLOPT_TIMEOUT, 60);
+		curl_setopt ($ch, CURLOPT_TIMEOUT, 600);
 		curl_setopt ($ch, CURLOPT_FOLLOWLOCATION, 1);
 		curl_setopt ($ch, CURLOPT_RETURNTRANSFER, 1);
 		curl_setopt ($ch, CURLOPT_COOKIESESSION, true);
@@ -115,10 +115,8 @@ class T1z_WP_Incremental_Backup_Client {
 		curl_setopt ($this->ch, CURLOPT_POSTFIELDS, "");
 		// Send request and die on cURL error
 		$json_response = curl_exec ($this->ch);
-		var_dump($json_response);
 		if ($json_response === false) die("[post_generate_backup] cURL error: " . curl_error($this->ch));
 		$parsed_response = json_decode($json_response);
-		var_dump($parsed_response);
 		// Parse response and die on error
 		if ($parsed_response->success === false) {
 			die("[post_generate_backup] error:\n * type: {$parsed_response->error_type}\n * details: {$parsed_response->error_details}\n");
@@ -139,7 +137,6 @@ class T1z_WP_Incremental_Backup_Client {
 		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/admin-ajax.php?action=wpib_download");
 		curl_setopt ($this->ch, CURLOPT_POST, 0);
 		$data = curl_exec ($this->ch);
-		if (WPIB_CLIENT_DEBUG_MODE) file_put_contents(__DIR__ . '/fetch.html', $data);
 		if (! $data) die("[get_fetch_backup_and_concat] cURL error: " . curl_error($this->ch) . "\n");
 
 		$dest_dir_prefix = $this->get_destination_dir($site);
