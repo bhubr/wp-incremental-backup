@@ -7,8 +7,9 @@ if (php_sapi_name() !== 'cli') {
 	die($error);
 }
 if($argc < 2) exit;
-$output_txt = $argv[1];
-$input_dir = $argv[2];
+$archive_list = $argv[1];
+$delete_list = $argv[2];
+$input_dir = $argv[3];
 
-$walker = new T1z_Incremental_Backup_Deleted_Walker($output_txt, $input_dir);
-$walker->prepare_files_archive();
+$walker = new T1z_Incremental_Backup_Deleted_Walker($archive_list, $delete_list, $input_dir);
+$walker->run();

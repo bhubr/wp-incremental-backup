@@ -8,7 +8,8 @@ if (php_sapi_name() !== 'cli') {
 }
 if($argc < 2) exit;
 $output_csv = $argv[1];
-$input_dir = $argv[2];
+$archive_list = $argv[2];
+$input_dir = $argv[3];
 
-$walker = new T1z_Incremental_Backup_MD5_Walker($output_csv, $input_dir);
+$walker = new T1z_Incremental_Backup_MD5_Walker($output_csv, $archive_list, $input_dir);
 $walker->prepare_files_archive();

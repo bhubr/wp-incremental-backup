@@ -1,12 +1,17 @@
 <?php
-require 'class-t1z-wpib-exception.php';
+require_once 'class-t1z-wpib-exception.php';
+require_once 'trait-t1z-walker-common.php';
+
 class T1z_Incremental_Backup_MD5_Walker {
+    use T1z_Walker_Common;
 
     private $input_dir;
     private $output_dir;
     private $output_list_csv;
-    public function __construct($output_csv, $input_dir) {
+    private $archive_list;
+    public function __construct($output_csv, $archive_list, $input_dir) {
         $this->output_list_csv = $output_csv;
+        $this->archive_list = $archive_list;
         $this->input_dir = $input_dir;
         $this->output_dir = dirname($output_csv);
         $this->first_run = !file_exists($this->output_list_csv);
@@ -16,51 +21,6 @@ class T1z_Incremental_Backup_MD5_Walker {
         else {
             $this->read();
         }
-    }
-
-    /**
-     * Read last file list
-     */
-    public function read() {
-        $this->fh = fopen($this->output_list_csv, "r");
-        do {
-            $line_read = fgetcsv($this->fh);
-            if (is_null($line_read)) {
-                throw new Exception("invalid handle, aborting");
-            }
-            $name = $line_read[0];
-            $md5 = $line_read[1];
-            $this->files[$name] = $md5;
-        } while($line_read !== false);
-    }
-
-    /**
-     * Get md5 from existing file
-     */
-    private function get_md5($name) {
-        return $this->files[$name];
-    }
-
-
-    /**
-     * Check if file is a special dir: either . or ..
-     */
-    private function is_special_dir($object) {
-        return $object->getFilename() === '.' || $object->getFilename() === '..';
-    }
-
-    /**
-     * Check if file is the output dir
-     */
-    private function is_output_dir($object) {
-        return dirname($object->getPathname()) === $this->output_dir;
-    }
-
-    /**
-     * Check if file is a regular file
-     */
-    private function is_regular_file($object) {
-        return !is_dir($object->getPathname());
     }
 
     /**
@@ -161,7 +121,7 @@ class T1z_Incremental_Backup_MD5_Walker {
         // $this->write_tar_archive($files_to_archive);
         fclose($this->fh);
 
-        // $this->write_archive_list($files_to_archive);
+        $this->write_archive_list($files_to_archive);
 
         // Log what whas done
         // $this->log([
@@ -175,5 +135,28 @@ class T1z_Incremental_Backup_MD5_Walker {
         //     'modified' => $files_modified,
         //     'deleted'  => $files_to_delete
         // ];
+    }
+    /**
+     * Write archive file list
+     */
+    private function write_archive_list($files_to_archive) {
+        // $list = $this->archive_list; //"{$this->output_fullpath_prefix}_tar_list.txt";
+        // echo "write start: " . $this->current_time_diff() . "<br>";
+        // $files_to_archive = array_keys($this->files);
+        // if ($has_deleted) array_unshift($files_to_archive, $this->delete_list);
+        $fh = fopen($this->archive_list, 'w');
+        $this->write_file_list($fh, $files_to_archive);
+        fclose($fh);
+        // if (empty($files_to_archive) && !$has_deleted) {
+        //     return;
+        // }
+        
+        // $fh = fopen($list, 'w');
+        // $files = array_map(function($file) {
+        //     return $this->filename_from_root($file);
+        // }, $files_to_archive);
+        // $file_list = implode("\n", $files);
+        // file_put_contents($list, $file_list);
+        // echo "write end: " . $this->current_time_diff() . "<br>";
     }
 }
