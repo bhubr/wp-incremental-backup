@@ -82,13 +82,15 @@ class T1z_Incremental_Backup_MD5_Walker {
             }
 
             // Add dir
-            if(!$this->is_regular_file($object)) {
+            if(is_dir($object->getPathname())) {
                 $this->add_dir($name);
                 continue;
             }
             $found_in_dirs[] = $name;
 
-            $md5 = $this->add_file($name);
+            if(!$this->is_regular_file($object)) continue;
+            $md5 = $this->add_file($name);    
+            
             if($this->first_run || !array_key_exists($name, $this->files)) {
                 // echo "new file: $name<br>";
                 $files_new[] = $name;

@@ -42,6 +42,7 @@ class T1z_Incremental_Backup_Walkers_Test extends T1z_Incremental_Backup_Test_Co
     	$this->touch_file('toto');
     	$this->touch_file('tata est partie');
     	$this->touch_file('dir1/toto est parti');
+        symlink (self::$input_dir . DIRECTORY_SEPARATOR . 'toto' , self::$input_dir . DIRECTORY_SEPARATOR . 'toto.link' );
     	
         // Instantiate and run walkers
         self::$md5_walker = new T1z_Incremental_Backup_MD5_Walker(self::$md5_csv, self::$archive_list, self::$input_dir);
@@ -52,9 +53,10 @@ class T1z_Incremental_Backup_Walkers_Test extends T1z_Incremental_Backup_Test_Co
         // Read and count entries in md5, tar and deleted lists
         $deleted_list = file(self::$delete_list);
     	$md5_list = file(self::$md5_csv);
-    	$this->assertEquals(6, count($md5_list));
+    	$this->assertEquals(6, count($md5_list)); // symlink must be ignored
     	$archive_list = file(self::$archive_list);
     	$this->assertEquals(3, count($archive_list));
+        $this->assertFalse(array_search('toto.link', $archive_list));
         $delete_list = file(self::$delete_list);
         $this->assertEquals(0, count($delete_list));
 

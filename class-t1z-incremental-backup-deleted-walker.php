@@ -51,9 +51,11 @@ class T1z_Incremental_Backup_Deleted_Walker {
             }
 
             // Skip dir
-            if(!$this->is_regular_file($object)) {
+            if(is_dir($object->getPathname())) {
                 continue;
             }
+
+            if(!$this->is_regular_file($object)) continue;
             $found_in_dirs[] = $name;
         }
 
