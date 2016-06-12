@@ -11,6 +11,14 @@
 		<td><?php echo $this->server_soft; ?></td>
 	</tr>
 	<tr>
+		<td>System info</td>
+		<td><?php echo $uname; ?></td>
+	</tr>
+	<tr>
+		<td>Thread library</td>
+		<td><?php echo $has_thread; ?></td>
+	</tr>
+	<tr>
 		<td>Activation id</td>
 		<td><?php echo $this->activation_id; ?></td>
 	</tr>
@@ -22,6 +30,7 @@
 	<?php endforeach; ?>
 </table>
 
+<?php phpinfo(); ?>
 
 <h3>Output dir content</h3>
 <ul>
