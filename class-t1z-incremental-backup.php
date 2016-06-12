@@ -66,13 +66,25 @@ class T1z_Incremental_Backup {
 
         $this->output_list_csv = $this->output_dir . "/list.csv";
 
-        $this->first_run = !file_exists($this->output_list_csv);
-        if ($this->first_run) {
-            $this->files = [];
-        }
-        else {
-            $this->read();
-        }
+        $this->setup_steps();
+    }
+
+    private function setup_steps() {
+        $this->step_descriptors = [
+            'md5'  => [
+                'output' => $this->output_list_csv,
+            ],
+            'list' => 'prepare_files_archive',
+            'tar'  => 'write_tar_archive',
+            'sql'  => 'write_sql_dump',
+            'zip'  => 'write_zip_archive'
+        ];
+        $this->steps = array_keys($this->step_descriptors);
+    }
+
+    private function get_output_file($step) {
+        $descriptor = $this->step_descriptors[$step];
+        return $descriptor['output'];
     }
 
     public function get_params() {
@@ -103,73 +115,6 @@ class T1z_Incremental_Backup {
     }
 
     /**
-     * Check if file is a special dir: either . or ..
-     */
-    private function is_special_dir($object) {
-        return $object->getFilename() === '.' || $object->getFilename() === '..';
-    }
-
-    /**
-     * Check if file is the output dir
-     */
-    private function is_output_dir($object) {
-        return dirname($object->getPathname()) === $this->output_dir;
-    }
-
-    /**
-     * Check if file is a regular file
-     */
-    private function is_regular_file($object) {
-        return !is_dir($object->getPathname());
-    }
-
-    /**
-     * Prepare a CSV line
-     */
-    private function line($name, $md5 = "") {
-        return "\"$name\",\"$md5\"\n";
-    }
-
-    /**
-     * Add a file to output
-     */
-    private function add_file($name) {
-        $md5 = md5_file($name);
-        fwrite($this->fh, $this->line($name, $md5));
-        return $md5;
-    }
-
-    /**
-     * Add a file to output
-     */
-    private function add_dir($name) {
-        fwrite($this->fh, $this->line($name));
-    }
-
-    /**
-     * Read last file list
-     */
-    public function read() {
-        $this->fh = fopen($this->output_list_csv, "r");
-        do {
-            $line_read = fgetcsv($this->fh);
-            if (is_null($line_read)) {
-                throw new Exception("invalid handle, aborting");
-            }
-            $name = $line_read[0];
-            $md5 = $line_read[1];
-            $this->files[$name] = $md5;
-        } while($line_read !== false);
-    }
-
-    /**
-     * Get md5 from existing file
-     */
-    private function get_md5($name) {
-        return $this->files[$name];
-    }
-
-    /**
      * Get filename, stripped from root dir (wp installation base dir)
      */
     private function filename_from_root($filename) {
@@ -180,25 +125,10 @@ class T1z_Incremental_Backup {
     }
 
     /**
-     * Write files to delete list
-     */
-    private function write_files_to_delete($files_to_delete) {
-        $dest = get_home_path() . FILES_TO_DELETE;
-        $fh = fopen($dest, 'w');
-        $num_to_delete = count($files_to_delete);
-        for($i = 0 ; $i < $num_to_delete ; $i++) {
-            $filename = $this->filename_from_root($files_to_delete[$i]);
-            $not_last = $i < $num_to_delete - 1;
-            fwrite($fh, $filename . ($not_last ? "\n" : ""));
-        }
-        fclose($fh);
-        return $num_to_delete > 0 ? $dest : '';
-    }
-
-    /**
      * Write archive file list
      */
-    private function write_archive_list($files_to_archive, $list) {
+    private function write_archive_list($files_to_archive) {
+        $list = "{$this->output_fullpath_prefix}_tar_list.txt";
         echo "write start: " . $this->current_time_diff() . "<br>";
         if (empty($files_to_archive)) {
             return;
@@ -211,6 +141,27 @@ class T1z_Incremental_Backup {
         $file_list = implode("\n", $files);
         file_put_contents($list, $file_list);
         echo "write end: " . $this->current_time_diff() . "<br>";
+    }
+
+    private function get_cmd($step) {
+        $tarfile = "{$this->output_fullpath_prefix}.tar";
+        $zipfile = "{$this->output_fullpath_prefix}.zip";
+        $md5file = $this->output_list_csv;
+        switch($step) {
+            case 'md5':
+                return "php " . __DIR__ . "/md5_walk.php $md5file {$this->input_dir}";
+            case 'tar':
+                $list = $this->output_dir . DIRECTORY_SEPARATOR . 'archive.txt';
+                return "cd {$this->input_dir}; %s cv -T {$list} -f %s";
+            case 'zip':
+                $args = "{$this->output_file_prefix}.sql";
+                if (file_exists($tarfile)) {
+                    $args .= " {$this->output_file_prefix}.tar";
+                }
+                return "cd {$this->output_dir}; zip $zipfile $args";
+            default:    
+
+        }
     }
 
     /**
@@ -242,12 +193,13 @@ class T1z_Incremental_Backup {
 
     private function not_about_to_timeout() {
         return $this->current_time_diff() < $this->php_timeout / 2;
+        // return $this->current_time_diff() < 4;
     }
 
     private function check_is_running() {
         try{
             $result = shell_exec(sprintf("ps %d", $this->pid));
-            var_dump($result);
+            // var_dump($result);
             if( count(preg_split("/\n/", $result)) > 2){
                 return true;
             }
@@ -257,43 +209,25 @@ class T1z_Incremental_Backup {
     }
 
     private function check_running_task_loop() {
-        while($this->not_about_to_timeout() && $this->check_is_running()) {
+        while($this->not_about_to_timeout()) {
             sleep(1);
-            echo $this->current_time_diff() . ' ' . $this->running_task . ' ' . $this->pid. ' ' . $this->file_wip . filesize($this->file_wip) . '<br>';
+            if (! $this->check_is_running()) return true;
+            // echo $this->current_time_diff() . ' ' . $this->running_task . ' ' . $this->pid. ' ' . $this->file_wip . filesize($this->file_wip) . '<br>';
         }
-        die();
+        return false;
     }
 
-    private function start_background_task($cmd_format, $generated_file, $cmd_bin) {
+    private function start_background_task($cmd_format, $generated_file, $cmd_bin, $st_output_dir_sz) {
         $cmd = sprintf($cmd_format, $cmd_bin, $generated_file);
         $cmdoutfile = "{$this->output_fullpath_prefix}_{$cmd_bin}_out.txt";
         $pidfile = "{$this->output_fullpath_prefix}_{$cmd_bin}.pid";
-        file_put_contents($this->progress, $this->running_task);
         $bg = new diversen\bgJob();
         $bg->execute($cmd, $cmdoutfile, $pidfile);
-        $this->running_task = $cmd_bin;
-        $this->pid = file_get_contents($pidfile);
+        $this->pid = trim(file_get_contents($pidfile));
+        $this->running_task = $cmd_bin . ':' . $this->pid . ':' . $st_output_dir_sz;
+        file_put_contents($this->progress, $this->running_task);
         $this->file_wip = $generated_file;
-        $this->check_running_task_loop();
-    }
-
-    function check_progress() {
-        $steps = ['', 'tar', 'dump', 'zip', 'done'];
-        $total = count($steps);
-        try {
-            $run = $this->get_latest_run_filename();
-            echo $run;
-            $current = file_get_contents("{$this->output_dir}/$run");    
-        } catch(Exception $e) {
-            $current = 'done';
-        }
-        
-        $index = array_search($current, $steps);
-        $step_of_total = "$index/$total";
-        return [
-            'current_step' => $current,
-            'current_of_total' => $step_of_total
-        ];
+        return $this->check_running_task_loop();
     }
 
     /**
@@ -321,7 +255,7 @@ class T1z_Incremental_Backup {
     /**
      * Prepare zip archive from files tar archive and sql dump
      */
-    public function prepare_zip() {
+    public function write_zip_archive() {
         $zip = new ZipArchive();
         $filename = "{$this->output_fullpath_prefix}.zip";
         if ($zip->open($filename, ZipArchive::CREATE) !== true) {
@@ -337,7 +271,7 @@ class T1z_Incremental_Backup {
     /**
      * Dump SQL
      */
-    public function prepare_sql_dump($host, $db, $user, $pass) {
+    public function write_sql_dump($host, $db, $user, $pass) {
         try {
             $dump = new IMysqldump\Mysqldump("mysql:host={$host};dbname={$db}", $user, $pass);
             $dump->start("{$this->output_fullpath_prefix}.sql");
@@ -418,9 +352,11 @@ class T1z_Incremental_Backup {
         echo "prepare end: " . $this->current_time_diff() . "<br>";
 
 
-        $this->write_tar_archive($files_to_archive);
-
+        // $this->write_tar_archive($files_to_archive);
         fclose($this->fh);
+
+        $this->write_archive_list($files_to_archive);
+
         // Log what whas done
         $this->log([
             'new'      => $files_new,
@@ -447,13 +383,88 @@ class T1z_Incremental_Backup {
         fclose($fh);
     }
 
+    private function get_step_param() {
+        $accepted_params = implode(', ', $this->steps);
+        // var_dump($this->steps);die();
+        if(! isset($_GET['step']) || array_search($_GET['step'], $this->steps) === false) {
+            $protocol = (isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0');
+            $error = '412 Missing Parameter';
+            $error_details = ! isset($_GET['step']) ? 'missing step parameter' :
+                ('invalid step parameter (' . $_GET['step'] . ')');
+            header($protocol . ' ' . $error);
+            die($error . ": $error_details [$accepted_params]");
+        }
+        return $_GET['step'];
+    }
+
+    private function get_output_dir_size() {
+        $du_cmd = "du -k {$this->output_dir} 2>&1";
+        exec($du_cmd, $output, $code);
+        $size_in_kb = (int)trim($output[0]);
+        return $size_in_kb;
+    }
+
     public function generate_backup() {
-        $result = $this->prepare_files_archive();
-        // $this->prepare_sql_dump(DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
-        // $this->prepare_zip();
+
+        $step = $this->get_step_param();
+        // $step_descriptor = $steps[$step];
+        $st_timestamp = $this->current_time_diff();
+        $st_output_dir_sz = $this->get_output_dir_size();
+
+        // $result = $this->prepare_files_archive();
+        $cmd = $this->get_cmd($step);
+        $output = $this->get_output_file($step);
+        // die($output);
+        $done = $this->start_background_task($cmd, $output, $step, $st_output_dir_sz);
+        $output_dir_size_diff = $this->get_output_dir_size() - $st_output_dir_sz;
+        $status = [
+            'step' => $step,
+            'done' => $done,
+            'pid'  => ! $done ? (int)$this->pid : null,
+            'kb_written' => $output_dir_size_diff
+        ];
+        var_dump($status);
+        die();
+
+        echo "sz start: $st_output_dir_sz, diff: $output_dir_size_diff ";
+        $time_elapsed = $this->current_time_diff() - $st_timestamp;
+        // $this->write_sql_dump(DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
+        // $this->write_zip_archive();
         // if (CLEANUP_AFTER_ZIP) $this->cleanup_tar_and_sql();
         return $this->get_latest_zip_filename();
     }
+
+    function check_progress() {
+        $total = count($this->steps);
+        try {
+            $run = $this->get_latest_run_filename();
+            // echo $run;
+            $run_info = file_get_contents("{$this->output_dir}/$run");
+            $info_bits = explode(':', $run_info);
+            var_dump($info_bits);
+            $current_step = $info_bits[0];
+            $this->pid = (int)$info_bits[1];
+            $kb_before = (int)$info_bits[2];
+        } catch(Exception $e) {
+            $current = 'done';
+        }
+        $done = $this->check_running_task_loop();
+        $output_dir_size_diff = $this->get_output_dir_size() - $kb_before;
+        $status = [
+            'step' => $current_step,
+            'done' => $done,
+            'pid'  => ! $done ? (int)$this->pid : null,
+            'kb_written' => $output_dir_size_diff
+        ];
+        var_dump($status);die();
+        $index = array_search($current_step, $this->steps);
+        $step_of_total = "$index/$total";
+        return [
+            'current_step' => $current_step,
+            'current_of_total' => $step_of_total
+        ];
+    }
+
 
     public function download_file($filename) {
         $fullpath = "{$this->output_dir}/$filename";

@@ -110,20 +110,33 @@ class T1z_WP_Incremental_Backup_Client {
 	 * POST request to generate backup
 	 */
 	private function post_generate_backup($config) {
-		// Set URL and clear POST data
-		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/admin-ajax.php?action=wpib_generate");
+		// clear POST data
 		curl_setopt ($this->ch, CURLOPT_POSTFIELDS, "");
-		// Send request and die on cURL error
-		$json_response = curl_exec ($this->ch);
-		if ($json_response === false) die("[post_generate_backup] cURL error: " . curl_error($this->ch));
-		$parsed_response = json_decode($json_response);
-		// Parse response and die on error
-		if ($parsed_response->success === false) {
-			die("[post_generate_backup] error:\n * type: {$parsed_response->error_type}\n * details: {$parsed_response->error_details}\n");
-		}
-		$this->zip_filename = $parsed_response->zip_filename;
+		// base URL (step param will be appended later)
+		$base_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_generate";
+		// various steps of process
+		$steps = ['list', 'tar', 'sql', 'zip'];
+		foreach($steps as $step) {
+			curl_setopt ($this->ch, CURLOPT_URL, "$base_url&step=$step");
+			// Send request and die on cURL error
+			$json_response = curl_exec ($this->ch);
+			$http_code = curl_getinfo($this->ch, CURLINFO_HTTP_CODE);
+			if ($http_code !== 200) {
+				die("HTTP error: $json_response\n");
+			}
+			
+			if ($json_response === false) die("[post_generate_backup] cURL error: " . curl_error($this->ch));
+			$parsed_response = json_decode($json_response);
+			// Parse response and die on error
+			if ($parsed_response->success === false) {
+				die("[post_generate_backup] error:\n * type: {$parsed_response->error_type}\n * details: {$parsed_response->error_details}\n");
+			}
+			$this->zip_filename = $parsed_response->zip_filename;
 
-		if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST generate backup', $this->zip_filename);
+			if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST generate backup', $this->zip_filename);
+
+		}
+		
 	}
 
 	private function get_destination_dir($site) {

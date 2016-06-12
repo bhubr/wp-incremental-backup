@@ -153,6 +153,7 @@ class T1z_Incremental_Backup_WP_Plugin {
         exec('which mysqldump', $which_msd_out, $ret);
         $mysqldump_bin = count($which_msd_out) ? $which_msd_out[0] : "n/a";
 
+        // http://stackoverflow.com/questions/1733507/how-to-get-size-of-mysql-database
         $db_size_query = 'SELECT table_schema, Round(Sum(data_length + index_length) / 1024 / 1024, 1) "db_size" ' . 'FROM information_schema.tables WHERE table_schema = \'' . DB_NAME . '\' GROUP BY table_schema;';
         global $wpdb;
         $size_query_res = $wpdb->get_results($db_size_query);
