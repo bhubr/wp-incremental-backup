@@ -42,7 +42,6 @@ class T1z_WP_Incremental_Backup_Nginx_Conf_Writer {
 		$this->read_configs();
 		$this->template = file_get_contents(__DIR__ . '/nginx_vhost.txt');
 		$this->write_nginx_vhosts();
-		// $this->write_hosts_file();
 	}
 
 	/**
@@ -55,14 +54,11 @@ class T1z_WP_Incremental_Backup_Nginx_Conf_Writer {
 		$this->nginx_sites = $config['nginx_sites'];
 		$this->nginx_conf_dir = $config['nginx_conf_dir'];
 		$this->nginx_sites_enabled = str_replace('sites-available', 'sites-enabled', $this->nginx_sites);
-		// if (!is_dir($this->nginx_sites_enabled)) {
-		// 	$did_create = mkdir($this->nginx_sites_enabled);
-		// 	if (! $did_create) {
-		// 		die("Could not create mirrors directory: {$this->nginx_sites_enabled}\n");
-		// 	}
-		// }
 	}
 
+	/**
+	 * Prepare patterns for replacing {{k}} with relevant value
+	 */
 	private function prepare_patterns($vars) {
 		$patterns = [];
 		foreach ($vars as $k) {
@@ -75,6 +71,7 @@ class T1z_WP_Incremental_Backup_Nginx_Conf_Writer {
 	 * Write nginx vhost configs
 	 */
 	private function write_nginx_vhosts() {
+		echo "[WP Incremental Backup plugin] nginx virtual host writer\n";
 		foreach($this->sites as $domain => $config) {
 
 			$new_domain = $this->replace_domain_ext($domain);
@@ -93,39 +90,14 @@ class T1z_WP_Incremental_Backup_Nginx_Conf_Writer {
 			if ($vhost_exists) {
 				copy($vhost_file, $vhost_file . '.bak');
 			}
+			echo "Wrote: $vhost_enabled_link\n";
 			file_put_contents($vhost_file, $vhost_conf);
-			// $vhost_enabled_link = str_replace('sites-available', 'sites-enabled', $vhost_file);
 
-			echo "$vhost_enabled_link\n";
-			// if (!is_link($vhost_enabled_link)) {
-			// 	symlink($vhost_file, $vhost_enabled_link);	
-			// }
+			if (!is_link($vhost_enabled_link)) {
+				symlink($vhost_file, $vhost_enabled_link);	
+			}
 		}
 	}
-
-	/**
-	 * Write hosts file
-	 */
-	// private function write_hosts_file() {
-	// 	$hosts_file = file('/etc/hosts');
-	// 	$hosts_trimmed = array_map(function($line) {
-	// 		return trim($line);
-	// 	}, $hosts_file);
-	// 	$wpib_begin_tag = array_search("# WPIB_BEGIN", $hosts_trimmed);
-	// 	$wpib_end_tag = array_search("# WPIB_END", $hosts_trimmed);
-	// 	if (!$wpib_begin_tag || !$wpib_end_tag) {
-	// 		echo "Please insert those lines in your /etc/hosts file:\n# WPIB_BEGIN\n# WPIB_END\n";
-	// 	}
-	// 	$hosts_lines = array_map(function($domain) {
-	// 		return "127.0.0.1 $domain\n";
-	// 	}, $this->local_domain_names);
-	// 	var_dump($hosts_lines);
-	// 	array_splice($hosts_file, $wpib_end_tag, 0, $hosts_lines);
-	// 	var_dump($hosts_file);
-	// 	fil
-	// 	// foreach($this->local_domain_names as $domain)
-	// }
 }
 
 $nginx_conf_writer = new T1z_WP_Incremental_Backup_Nginx_Conf_Writer();
-// var_dump($nginx_conf_writer);
