@@ -67,8 +67,9 @@ class T1z_Incremental_Backup_WP_Plugin {
         $output_file_prefix = $sanitized_blog_name;
  
         try {
-            $this->inc_bak = new T1z_Incremental_Backup($input_dir, $output_dir, $this->activation_id, $output_file_prefix);    
+            $this->inc_bak = new T1z_Incremental_Backup($input_dir, $output_dir, $this->activation_id, $output_file_prefix);
         } catch(Exception $e) {
+            // die($e->getMessage());
             $this->message = __( 'Error: ' . $e->getMessage(), 'sample-text-domain' );
             add_action( 'admin_notices', [$this, 'admin_notice__error'] );
         }

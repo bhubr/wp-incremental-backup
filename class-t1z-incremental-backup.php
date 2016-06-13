@@ -78,27 +78,38 @@ class T1z_Incremental_Backup {
     private $zip_file;
 
     /**
+     * Process steps
+     */
+    private $steps = ['md5', 'lists', 'tar', 'sql', 'zip'];
+
+    /**
      * Task running
      */
     private $running_task = "";
 
-    public function __construct($input_dir, $output_root_dir, $output_set_id, $output_file_prefix) {
+    public function __construct($input_dir, $output_root_dir, $output_set_id, $file_prefix) {
         $this->start_timestamp = time();
         $this->input_dir = $input_dir;
         $this->output_root_dir = $output_root_dir;
         $this->output_set_id = $output_set_id;
         $this->output_dir = $this->output_root_dir . DIRECTORY_SEPARATOR . $output_set_id;
-        $this->datetime = date("Ymd-His");
-        $this->output_file_prefix = $output_file_prefix . '_' . $this->datetime;
-        $this->output_fullpath_prefix = $this->output_dir . DIRECTORY_SEPARATOR . $output_file_prefix;
-        $this->progress = "{$this->output_fullpath_prefix}.run";
-        $this->output_log = $this->output_fullpath_prefix . '_log.csv';
-        $this->php_timeout = ini_get('max_execution_time');
-
         if (! is_dir($this->output_dir)) {
             $dir_created = mkdir($this->output_dir, 0777, true);
             if (! $dir_created) throw new Exception("Could not create output_dir: {$this->output_dir}");
         }
+        $this->datetime = date("Ymd-His");
+        $this->file_prefix = $file_prefix;
+        $this->output_file_prefix = $this->file_prefix . '_' . $this->datetime;
+        $this->output_fullpath_prefix = $this->output_dir . DIRECTORY_SEPARATOR . $this->output_file_prefix;
+        $this->progress = "{$this->output_fullpath_prefix}.run";
+    }
+
+    private function setup_process_vars() {
+        $this->output_file_prefix = $this->file_prefix . '_' . $this->datetime;
+        $this->output_fullpath_prefix = $this->output_dir . DIRECTORY_SEPARATOR . $this->output_file_prefix;
+        $this->progress = "{$this->output_fullpath_prefix}.run";
+        $this->output_log = $this->output_fullpath_prefix . '_log.csv';
+        $this->php_timeout = ini_get('max_execution_time');
 
         $this->md5_csv_file = $this->output_dir . "/list.csv";
         $this->tar_file_src_list = $this->output_dir . DIRECTORY_SEPARATOR . 'archive.txt';
@@ -117,8 +128,6 @@ class T1z_Incremental_Backup {
             'sql'   => $this->sql_file,
             'zip'   => $this->zip_file
         ];
-        $this->steps = array_keys($this->output_files);
-        // var_dump($this);die();
     }
 
     private function get_output_files($step) {
@@ -170,8 +179,10 @@ class T1z_Incremental_Backup {
                     $to_zip .= " " . $this->tar_file;
                 }
                 return "cd {$this->output_dir}; zip {$this->zip_file} $to_zip";
+            case 'sql':
+                return sprintf("mysqldump -u%s -p\"%s\" %s > {$this->sql_file}", DB_USER, DB_PASSWORD, DB_NAME);
             default:
-                return "ls {$md5file}";
+                return "ls {$this->md5_csv_file}";
 
         }
     }
@@ -205,7 +216,7 @@ class T1z_Incremental_Backup {
 
     private function not_about_to_timeout() {
         // return $this->current_time_diff() < $this->php_timeout / 2;
-        return $this->current_time_diff() < 60;
+        return $this->current_time_diff() < 4;
     }
 
     private function check_is_running() {
@@ -229,19 +240,25 @@ class T1z_Incremental_Backup {
         return false;
     }
 
+    private function write_progress($step, $pid, $output_dir_size) {
+        $fh = fopen($this->progress, 'a+');
+        $step_line = "\n" . $step . ':' . $this->pid . ':' . $output_dir_size;
+        fwrite($fh, $step_line);
+        fclose($fh);
+        // file_put_contents($this->progress, $this->running_task);
+        // $this->file_wip = $generated_file;
+    }
+
     private function start_background_task($st_output_dir_sz, $cmd_format, $step, $generated_file1, $generated_file2 = "") {
         $func_args = func_get_args();
         $sprintf_args = array_slice($func_args, 3);
         $cmd = vsprintf($cmd_format, $sprintf_args);
-        die($cmd);
         $cmdoutfile = "{$this->output_fullpath_prefix}_{$step}_out.txt";
         $pidfile = "{$this->output_fullpath_prefix}_{$step}.pid";
         $bg = new diversen\bgJob();
         $bg->execute($cmd, $cmdoutfile, $pidfile);
         $this->pid = trim(file_get_contents($pidfile));
-        $this->running_task = $step . ':' . $this->pid . ':' . $st_output_dir_sz;
-        file_put_contents($this->progress, $this->running_task);
-        // $this->file_wip = $generated_file;
+        $this->write_progress($step, $this->pid, $st_output_dir_sz);
         return $this->check_running_task_loop();
     }
 
@@ -263,8 +280,19 @@ class T1z_Incremental_Backup {
 
     public function get_latest_run_filename() {
         $files = glob("{$this->output_dir}/*.run");
+        if (count($files) === 0) {
+            throw new T1z_WPIB_Exception("No run filename found", T1z_WPIB_Exception::FILES);
+        }
         $filename = array_pop($files);
         return basename($filename);
+    }
+
+    public function get_process_datetime() {
+        $latest_run_filename = $this->get_latest_run_filename();
+        $latest_run = file($this->output_dir . DIRECTORY_SEPARATOR . $latest_run_filename);
+        // die($this->output_dir . DIRECTORY_SEPARATOR . $latest_run_filename);
+        $this->datetime = array_shift($latest_run);
+        return $this->datetime;
     }
 
     /**
@@ -335,24 +363,39 @@ class T1z_Incremental_Backup {
         die($response_payload);
     }
 
+    public function start_backup_process() {
+        // var_dump($this->progress);
+        // var_dump($this->datetime);
+        file_put_contents($this->progress, $this->datetime);
+    }
+
     public function generate_backup() {
         $step = $this->get_step_param();
+        if($this->is_first_step($step)) {
+            $this->start_backup_process();
+            // die('first');
+        }
+        else {
+            $this->datetime = $this->get_process_datetime();
+        }
+        $this->setup_process_vars();
         // $step_descriptor = $steps[$step];
         $st_timestamp = $this->current_time_diff();
         $st_output_dir_sz = $this->get_output_dir_size();
-
+// die($this->datetime);
         // $result = $this->prepare_files_archive();
         $cmd = $this->get_cmd($step);
         $task_args = array_merge(
             [$st_output_dir_sz, $cmd, $step],
             $this->get_output_files($step)
         );
-        var_dump($task_args);
+        // var_dump($task_args);
 
         $done = call_user_func_array([$this, 'start_background_task'], $task_args);
         $output_dir_size_diff = $this->get_output_dir_size() - $st_output_dir_sz;
         $status = [
-            'datetime' => $datetime,
+            'datetime' => $this->datetime,
+            'files' => $this->get_output_files($step),
             'step' => $step,
             'done' => $done,
             'pid'  => ! $done ? (int)$this->pid : null,
@@ -372,6 +415,8 @@ class T1z_Incremental_Backup {
     }
 
     function check_progress() {
+        $this->datetime = $this->get_process_datetime();
+        $this->setup_process_vars();
         try {
             $run = $this->get_latest_run_filename();
             // echo $run;
@@ -399,6 +444,10 @@ class T1z_Incremental_Backup {
         header("Content-type: application/json");
         die($response_payload);
 
+    }
+
+    private function is_first_step($step) {
+        return array_search($step, $this->steps) === 0;
     }
 
     private function step_num_progress($current_step) {
