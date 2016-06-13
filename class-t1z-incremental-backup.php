@@ -184,9 +184,9 @@ class T1z_Incremental_Backup {
             case 'tar':
                 return "cd {$this->input_dir}; tar c -T {$this->tar_file_src_list} -f %s";
             case 'zip':
-                $to_zip = $this->sql_file;
+                $to_zip = basename($this->sql_file);
                 if (file_exists($this->tar_file)) {
-                    $to_zip .= " " . $this->tar_file;
+                    $to_zip .= " " . basename($this->tar_file);
                 }
                 $zip_bin = $this->get_zip_binary();
                 if(! empty($zip_bin)) {
