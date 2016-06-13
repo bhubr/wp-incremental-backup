@@ -10,3 +10,4 @@ vendor/sebastian/
 vendor/symfony/
 vendor/filp/
 vendor/webmozart/
+client/nginx.ini
