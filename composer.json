@@ -1,6 +1,7 @@
 {
     "require": {
-        "ifsnop/mysqldump-php": "2.1"
+        "ifsnop/mysqldump-php": "2.1",
+        "diversen/background-job": "^1.0"
     },
     "require-dev": {
         "phpunit/phpunit": "5.4.*",

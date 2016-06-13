@@ -15,6 +15,26 @@
 		<td><?php echo $uname; ?></td>
 	</tr>
 	<tr>
+		<td>System path</td>
+		<td><?php echo $sys_path; ?></td>
+	</tr>
+	<tr>
+		<td>PHP version</td>
+		<td><?php echo $php_version; ?></td>
+	</tr>
+	<tr>
+		<td>zip binary</td>
+		<td><?php echo $zip_bin; ?></td>
+	</tr>
+	<tr>
+		<td>mysqldump binary</td>
+		<td><?php echo $mysqldump_bin; ?></td>
+	</tr>
+	<tr>
+		<td>Database size (MB)</td>
+		<td><?php echo $db_size; ?></td>
+	</tr>
+	<tr>
 		<td>Thread library</td>
 		<td><?php echo $has_thread; ?></td>
 	</tr>
@@ -30,7 +50,7 @@
 	<?php endforeach; ?>
 </table>
 
-<?php phpinfo(); ?>
+<?php //phpinfo(); ?>
 
 <h3>Output dir content</h3>
 <ul>
