@@ -138,6 +138,8 @@ class T1z_WP_Incremental_Backup_Client {
 
 				$json_response = curl_exec ($this->ch);
 				$parsed_response = json_decode($json_response);
+				var_dump($json_response);
+				file_put_contents(__DIR__ . '/fetch_dbg.html', $json_response);
 				var_dump($parsed_response);
 				sleep(1);
 			}

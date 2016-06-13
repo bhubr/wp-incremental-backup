@@ -468,7 +468,7 @@ class T1z_Incremental_Backup {
         $output_dir_size_diff = $this->get_output_dir_size() - $kb_before;
         $status = [
             'step' => $current_step,
-            'files' => $this->get_output_files($step),
+            'files' => $this->get_output_files($current_step),
             'done' => $done,
             'pid'  => ! $done ? (int)$this->pid : null,
             'kb_written' => $output_dir_size_diff
