@@ -30,12 +30,12 @@ class T1z_Incremental_Backup_Deleted_Walker {
         // echo "prepare start: " . $this->current_time_diff() . "<br>";
         $found_in_dirs = [];
         $files_to_delete = [];
-
+// $fh = fopen(__DIR__.'/deleted.txt', 'w');
         $objects = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($this->input_dir),
             RecursiveIteratorIterator::SELF_FIRST
         );
-
+// fwrite($fh, print_r($objects, true));
         // Iterate directory
         foreach($objects as $name => $object) {
 
@@ -58,13 +58,17 @@ class T1z_Incremental_Backup_Deleted_Walker {
             if(!$this->is_regular_file($object)) continue;
             $found_in_dirs[] = $name;
         }
-
+// fwrite($fh, "\n" . implode("\n", $found_in_dirs));
         // Iterate existing files from previous backup's list
         foreach($this->files as $name => $md5) {
+// fwrite($fh, $name . " ". $md5 . " " . ( array_search($name, $found_in_dirs ) ? 'found': (! is_dir($name) ? 'not found' : 'dir') ). "\n");
             if (!empty($md5) && array_search($name, $found_in_dirs) === false) {
+                // fwrite($fh, $name . "\n");
                 $files_to_delete[] = $name;
             }
         }
+// fwrite($fh, "\n" . implode("\n", $files_to_delete));
+// fclose($fh);
         return $this->write_delete_list($files_to_delete);
     }
 
@@ -73,26 +77,14 @@ class T1z_Incremental_Backup_Deleted_Walker {
      * Write files to delete list
      */
     private function write_delete_list($files_to_delete) {
-        // $dest = $this->input_dir . DIRECTORY_SEPARATOR . FILES_TO_DELETE;
         $fh = fopen($this->delete_list, 'w');
         $this->write_file_list($fh, $files_to_delete);
-        // $num_to_delete = count($files_to_delete);
-        // for($i = 0 ; $i < $num_to_delete ; $i++) {
-        //     $filename = $this->filename_from_root($files_to_delete[$i]);
-        //     $not_last = $i < $num_to_delete - 1;
-        //     fwrite($fh, $filename . ($not_last ? "\n" : ""));
-        // }
         fclose($fh);
     }
     private function append_archive_list() {
-        // $list = $this->archive_list; //"{$this->output_fullpath_prefix}_tar_list.txt";
-        // echo "write start: " . $this->current_time_diff() . "<br>";
-        // $files_to_archive = array_keys($this->files);
-        // if ($has_deleted) array_unshift($files_to_archive, $this->delete_list);
-        $fh = fopen($this->archive_list, 'a+');
-        // $this->write_file_list($fh, $files_to_archive);
-        fwrite($fh, "\n" . $this->delete_list);
-        fclose($fh);
+        // $fh = fopen($this->archive_list, 'a+');
+        // fwrite($fh, "\n" . $this->delete_list);
+        // fclose($fh);
     }
 
 }

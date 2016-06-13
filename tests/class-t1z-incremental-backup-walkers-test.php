@@ -32,6 +32,13 @@ class T1z_Incremental_Backup_Walkers_Test extends T1z_Incremental_Backup_Test_Co
     	touch($dir . DIRECTORY_SEPARATOR . basename($rel_path));
     }
 
+    protected function modify_file($rel_path) {
+        $dir = dirname(self::$input_dir . DIRECTORY_SEPARATOR . $rel_path);
+        $fh = fopen($dir . DIRECTORY_SEPARATOR . basename($rel_path), 'a+');
+        fwrite($fh, "\nsome text");
+        fclose($fh);
+    }
+
     protected function rm_file($rel_path) {
     	unlink(self::$input_dir . DIRECTORY_SEPARATOR . $rel_path);
 	}
@@ -40,6 +47,7 @@ class T1z_Incremental_Backup_Walkers_Test extends T1z_Incremental_Backup_Test_Co
     {
         // Create a few files
     	$this->touch_file('toto');
+        $this->touch_file('tata');
     	$this->touch_file('tata est partie');
     	$this->touch_file('dir1/toto est parti');
         symlink (self::$input_dir . DIRECTORY_SEPARATOR . 'toto' , self::$input_dir . DIRECTORY_SEPARATOR . 'toto.link' );
@@ -53,24 +61,32 @@ class T1z_Incremental_Backup_Walkers_Test extends T1z_Incremental_Backup_Test_Co
         // Read and count entries in md5, tar and deleted lists
         $deleted_list = file(self::$delete_list);
     	$md5_list = file(self::$md5_csv);
-    	$this->assertEquals(6, count($md5_list)); // symlink must be ignored
+        var_dump(file(self::$archive_list));
+
+    	$this->assertEquals(7, count($md5_list)); // symlink must be ignored
     	$archive_list = file(self::$archive_list);
-    	$this->assertEquals(3, count($archive_list));
+    	$this->assertEquals(4, count($archive_list));
         $this->assertFalse(array_search('toto.link', $archive_list));
         $delete_list = file(self::$delete_list);
         $this->assertEquals(0, count($delete_list));
 
-        // Delete files and re-run walkers
+        // Delete two files, modify one, and re-run walkers
     	$this->rm_file('tata est partie');
     	$this->rm_file('dir1/toto est parti');
-    	self::$md5_walker->prepare_files_archive();
+        $this->modify_file('tata');
+        self::$deleted_walker = new T1z_Incremental_Backup_Deleted_Walker(self::$archive_list, self::$delete_list, self::$input_dir);
         self::$deleted_walker->run();
+        self::$md5_walker = new T1z_Incremental_Backup_MD5_Walker(self::$md5_csv, self::$archive_list, self::$input_dir);
+    	self::$md5_walker->prepare_files_archive();
+        var_dump(file(self::$archive_list));
 
         // Read and recount entries in md5, tar and deleted lists
     	$md5_list = file(self::$md5_csv);
-    	$this->assertEquals(4, count($md5_list));
+        // var_dump(file(self::$md5_csv));
+    	$this->assertEquals(5, count($md5_list));
     	$archive_list = file(self::$archive_list);
     	$this->assertEquals(1, count($archive_list));
+        $this->assertEquals('tata', $archive_list[0]);
         $delete_list = file(self::$delete_list);
         $this->assertEquals(2, count($delete_list));
     }
