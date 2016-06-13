@@ -1,10 +1,4 @@
 <?php
-
-define('WPIB_CLIENT_DEBUG_MODE', true);
-define('WPIB_CLIENT_DEBUG_LEN', 400);
-define('BACKUP_ROOT', '/Volumes/Backup/Geek/Sites');
-
-require realpath(__DIR__ . '/../common/constants.php');
 require 'trait-t1z-wpib-utils.php';
 
 class T1z_WP_Incremental_Backup_Nginx_Conf_Writer {
@@ -19,11 +13,6 @@ class T1z_WP_Incremental_Backup_Nginx_Conf_Writer {
 	 * Tool config
 	 */
 	private $config;
-
-	/**
-	 * Latest ZIP file name
-	 */
-	private $zip_filename;
 
 	/**
 	 * Virtual host config template

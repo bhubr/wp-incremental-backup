@@ -165,16 +165,27 @@ class T1z_WP_Incremental_Backup_SQL_Injector {
 				echo "Skip: $site\n";
 				continue;
 			}
-			var_dump($dbce);
+			// var_dump($dbce);
 
-			$pdo = new PDO(
-			    "mysql:host={$dbce->host};dbname={$dbce->name}",
-			    $dbce->user,
-			    $dbce->password
-		    );
+			// $pdo = new PDO(
+			//     "mysql:host={$dbce->host};dbname={$dbce->name}",
+			//     $dbce->user,
+			//     $dbce->password
+		 //    );
 
-			// $wp_root = $this->backup_root . DIRECTORY_SEPARATOR . $site . DIRECTORY_SEPARATOR . 'wordpress';
-
+			$show_tables_cmd = "mysql -u{$dbce->user} -p{$dbce->password} {$dbce->name} -Nse 'show tables'";
+			exec($show_tables_cmd, $tables, $ret);
+			$drop_statements = array_map(function($table) {
+				return "drop table if exists $table;";
+			}, $tables);
+			// $sql_drop = implode("", $drop_statements);
+			// $drop_cmd = "mysql -u{$dbce->user} -p\"{$dbce->password}\" {$dbce->name} --execute \"$sql_drop\"";
+			// echo "$drop_cmd";
+			// exec($drop_cmd, $output, $ret);
+			// var_dump($output);
+			// echo "$ret\n";
+			// exec($prepare_cmd, $output, $ret);
+			
 			// Create PDO MySQL instance
 			// Truncate all db tables
 			// Inject new dump
@@ -195,11 +206,9 @@ class T1z_WP_Incremental_Backup_SQL_Injector {
 
 		$mysql_users_to_create = [];
 		foreach($this->wpdb_configs as $site => $db_config) {
-			var_dump($db_config);
 			$name = $db_config['name'];
 			$user = $db_config['user'];
 			$host = $db_config['host'];
-			// $pass = $this->pdo_mysql->quote($db_config['password']);
 			$pass = $db_config['password'];
 			if (array_search($user, $mysql_existing_users) !== false) {
 				echo "User $user *already exists*\n";
@@ -214,31 +223,13 @@ class T1z_WP_Incremental_Backup_SQL_Injector {
 			        "CREATE USER '$user'@'localhost' IDENTIFIED BY '$pass'; " .
 			        "GRANT ALL ON $name.* TO '$user'@'localhost'; " .
 			        "FLUSH PRIVILEGES;";
-				// $this->pdo_mysql->query("CREATE DATABASE IF NOT EXISTS `$name`;");
-				// $this->pdo_mysql->commit();
-				// $this->pdo_mysql->query("CREATE USER '$user'@'localhost' IDENTIFIED BY '$pass';");
-				// $this->pdo_mysql->commit();
-				// $this->pdo_mysql->query("GRANT ALL ON `$name`.* TO '$user'@'localhost';");
-				// $this->pdo_mysql->commit();
-				// $this->pdo_mysql->query("FLUSH PRIVILEGES;");
-				// $this->pdo_mysql->commit();
 		        $mysql_cmd = "mysql -uroot -p$my_root_pass --execute \"$sql\"";
-		        echo "$mysql_cmd\n";
 		        exec($mysql_cmd, $output, $ret);
-		        echo "$output\n";
-		        echo "$ret\n";
 			} catch(Exception $e) {
 				echo $e->getMessage() . "\n";
 				continue;
 			}
 			echo "User $user created!\n";
-
-			// $create_user_query = $this->pdo_mysql->prepare("CREATE USER ':user'@':host' IDENTIFIED BY ':pass'");
-			// $create_user_query->bindValue(':user', $user);
-			// $create_user_query->bindValue(':host', $host);
-			// $create_user_query->bindValue(':peass', $pass);
-			// $create_user_query->execute();
-			// var_dump($create_user_query->errorInfo());
 		}
 	}
 

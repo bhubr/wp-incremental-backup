@@ -78,10 +78,10 @@
 	<?php endforeach; ?>
 	</ul>
 <?php else: ?>
-<h3>Run process</h3>
+<!-- <h3>Run process</h3>
 <form action="admin-ajax.php?action=wpib_generate" method="POST">
 	<input type="submit" class="button" value="Run" />
-</form>
+</form> -->
 <form action="" method="POST">
 	<input type="hidden" name="reset_activation_id" />
 	<input type="submit" class="button" value="Reset Activation ID" />

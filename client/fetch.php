@@ -67,6 +67,7 @@ class T1z_WP_Incremental_Backup_Client {
 				$config['url'] .= '/';
 			}
 			$this->get_login($config);
+			$this->get_login($config);
 			$this->post_login($config);
 			$this->post_generate_backup($config, $site);
 			$this->get_fetch_backup_and_concat($config, $site);
@@ -151,7 +152,7 @@ class T1z_WP_Incremental_Backup_Client {
 				die($json_response . "\n");
 			}
 
-
+var_dump($parsed_response);
 			// Die on process error and give details
 			if (!$parsed_response->success) {
 				echo "\n\n!!! An error occurred during processing ($step - {$parsed_response->step_of_total}). ABORTING !!!\n";
