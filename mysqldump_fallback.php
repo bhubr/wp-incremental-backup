@@ -20,5 +20,6 @@ try {
     $dump = new IMysqldump\Mysqldump("mysql:host={$host};dbname={$db}", $user, $pass);
     $dump->start("{$output_fullpath_prefix}.sql");
 } catch (\Exception $e) {
-    throw new T1z_WPIB_Exception($e->getMessage(), T1z_WPIB_Exception::MYSQL);
+    die($e->getMessage() . "\n");
 }
+echo "done: " . filesize("{$output_fullpath_prefix}.sql") . " bytes written\n";

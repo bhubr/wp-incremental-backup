@@ -202,8 +202,7 @@ class T1z_Incremental_Backup {
                 // die(sprintf("php " . __DIR__ . "/mysqldump_fallback.php {$this->output_fullpath_prefix} %s %s %s %s", DB_HOST, DB_NAME, DB_USER, DB_PASSWORD));
                 return sprintf("php " . __DIR__ . "/mysqldump_fallback.php {$this->output_fullpath_prefix} %s %s %s %s", DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
             default:
-                return "ls {$this->md5_csv_file}";
-
+                throw new Exception("Should never get here: " . __FUNCTION__);
         }
     }
 
@@ -302,7 +301,7 @@ class T1z_Incremental_Backup {
         }
     }
 
-    private function get_latest_zip_filename() {
+    public function get_latest_zip_filename() {
         $files = glob("{$this->output_dir}/*.zip");
         $filename = array_pop($files);
         return basename($filename);
@@ -499,6 +498,7 @@ class T1z_Incremental_Backup {
 
     public function download_file($filename) {
         $fullpath = "{$this->output_dir}/$filename";
+        // die($fullpath);
         header("Content-type: application/zip");
         header("Content-Disposition: attachment; filename=$filename");
         header("Content-length: " . filesize($fullpath));

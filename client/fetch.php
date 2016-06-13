@@ -145,11 +145,13 @@ class T1z_WP_Incremental_Backup_Client {
 			// if ($parsed_response->success === false) {
 			// 	die("[post_generate_backup] error:\n * type: {$parsed_response->error_type}\n * details: {$parsed_response->error_details}\n");
 			// }
-			// $this->zip_filename = $parsed_response->zip_filename;
+			
 
 			if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST generate backup', $this->zip_filename);
 
 		}
+		$this->zip_filename = basename($parsed_response->files[0]);
+		echo "\n\nProcess done! ZIP filename: {$this->zip_filename}\n";
 		
 	}
 
