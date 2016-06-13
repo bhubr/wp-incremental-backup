@@ -137,10 +137,29 @@ class T1z_WP_Incremental_Backup_Client {
 			}
 
 			// Die on cURL error
-			if (empty($json_response)) die(" !!! [post_generate_backup] cURL error: " . curl_error($this->ch) . "\n");
-var_dump($json_response);
+			if (empty($json_response)) {
+				die(" !!! [post_generate_backup] cURL error: " . curl_error($this->ch) . "\n");
+			}
+
+// var_dump($json_response);
 			// Parse JSON response
 			$parsed_response = json_decode($json_response);
+
+			// Die on empty parsed response
+			if (empty($parsed_response)) {
+				echo " !!! [post_generate_backup] JSON parse error. Received payload:\n";
+				die($json_response . "\n");
+			}
+
+
+			// Die on process error and give details
+			if (!$parsed_response->success) {
+				echo "\n\n!!! An error occurred during processing ($step - {$parsed_response->step_of_total}). ABORTING !!!\n";
+				// echo $parsed_response->error_details . "\n";
+				var_dump($parsed_response);
+				exit;
+			}
+
 			echo " ($parsed_response->step_of_total)  ==>  .";
 			$num_calls = 1;
 

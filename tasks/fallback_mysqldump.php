@@ -1,7 +1,8 @@
 <?php
+define('PLUGIN_DIR', realpath(__DIR__ . '/..'));
 use Ifsnop\Mysqldump as IMysqldump;
-require 'vendor/autoload.php';
-require 'class-t1z-wpib-exception.php';
+require PLUGIN_DIR . '/vendor/autoload.php';
+require PLUGIN_DIR . '/class-t1z-wpib-exception.php';
 
 if (php_sapi_name() !== 'cli') {
     $protocol = (isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0');

@@ -1,5 +1,6 @@
 <?php
-require 'class-t1z-incremental-backup-md5-walker.php';
+define('PLUGIN_DIR', realpath(__DIR__ . '/..'));
+require PLUGIN_DIR . '/class-t1z-incremental-backup-md5-walker.php';
 if (php_sapi_name() !== 'cli') {
 	$protocol = (isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0');
 	$error = '404 Not Found';
