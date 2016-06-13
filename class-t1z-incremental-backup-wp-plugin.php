@@ -151,10 +151,8 @@ class T1z_Incremental_Backup_WP_Plugin {
         $uname = $uname_out[0];
         exec('php -v 2>&1', $php_out, $ret);
         $php_version = $php_out[0];
-        exec('which zip 2>&1', $which_zip_out, $ret);
-        $zip_bin = count($which_zip_out) ? $which_zip_out[0] : "n/a";
-        exec('which mysqldump 2>&1', $which_msd_out, $ret);
-        $mysqldump_bin = count($which_msd_out) ? $which_msd_out[0] : "n/a";
+        $zip_bin = $this->inc_bak->get_zip_binary();
+        $mysqldump_bin = $this->inc_bak->get_mysqldump_binary();
         exec('echo $PATH 2>&1', $sys_path_out, $ret);
         $sys_path = count($sys_path_out) ? $sys_path_out[0] : "n/a";
 

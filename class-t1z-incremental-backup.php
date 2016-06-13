@@ -162,6 +162,16 @@ class T1z_Incremental_Backup {
         }
     }
 
+    public function get_zip_binary() {
+        exec('which zip 2>&1', $which_zip_out, $ret);
+        return count($which_zip_out) ? $which_zip_out[0] : "";
+    }
+
+    public function get_mysqldump_binary() {
+        exec('which mysqldump 2>&1', $which_msd_out, $ret);
+        return count($which_msd_out) ? $which_msd_out[0] : "";
+    }
+
     private function get_cmd($step) {
         // $tarfile = "{$this->output_fullpath_prefix}.tar";
         // $zipfile = "{$this->output_fullpath_prefix}.zip";
@@ -178,9 +188,19 @@ class T1z_Incremental_Backup {
                 if (file_exists($this->tar_file)) {
                     $to_zip .= " " . $this->tar_file;
                 }
-                return "cd {$this->output_dir}; zip {$this->zip_file} $to_zip";
+                $zip_bin = $this->get_zip_binary();
+                if(! empty($zip_bin)) {
+                    return "cd {$this->output_dir}; zip {$this->zip_file} $to_zip";    
+                }
+                // die("php " . __DIR__ . "/zip_fallback.php {$this->output_fullpath_prefix}");
+                return "php " . __DIR__ . "/zip_fallback.php {$this->output_fullpath_prefix}";
             case 'sql':
-                return sprintf("mysqldump -u%s -p\"%s\" %s > {$this->sql_file}", DB_USER, DB_PASSWORD, DB_NAME);
+                $mysqldump_bin = $this->get_mysqldump_binary();
+                if(! empty($mysqldump_bin)) {
+                    return sprintf("mysqldump -u%s -p\"%s\" %s > {$this->sql_file}", DB_USER, DB_PASSWORD, DB_NAME);
+                }
+                // die(sprintf("php " . __DIR__ . "/mysqldump_fallback.php {$this->output_fullpath_prefix} %s %s %s %s", DB_HOST, DB_NAME, DB_USER, DB_PASSWORD));
+                return sprintf("php " . __DIR__ . "/mysqldump_fallback.php {$this->output_fullpath_prefix} %s %s %s %s", DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
             default:
                 return "ls {$this->md5_csv_file}";
 
