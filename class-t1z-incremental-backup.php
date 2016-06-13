@@ -185,19 +185,19 @@ class T1z_Incremental_Backup {
                 return "cd {$this->input_dir}; tar c -T {$this->tar_file_src_list} -f %s";
             case 'zip':
                 $to_zip = basename($this->sql_file);
-                if (file_exists($this->tar_file)) {
-                    $to_zip .= " " . basename($this->tar_file);
-                }
-                $zip_bin = $this->get_zip_binary();
-                if(! empty($zip_bin)) {
-                    return "cd {$this->output_dir}; zip {$this->zip_file} $to_zip";    
-                }
+                // if (file_exists($this->tar_file)) {
+                //     $to_zip .= " " . basename($this->tar_file);
+                // }
+                // $zip_bin = $this->get_zip_binary();
+                // if(! empty($zip_bin)) {
+                //     return "cd {$this->output_dir}; zip {$this->zip_file} $to_zip";    
+                // }
                 return "php " . TASKS_DIR . "fallback_zip.php {$this->output_fullpath_prefix}";
             case 'sql':
-                $mysqldump_bin = $this->get_mysqldump_binary();
-                if(! empty($mysqldump_bin)) {
-                    return sprintf("mysqldump -u%s -p'%s' %s > {$this->sql_file} 2>&1", DB_USER, DB_PASSWORD, DB_NAME);
-                }
+                // $mysqldump_bin = $this->get_mysqldump_binary();
+                // if(! empty($mysqldump_bin)) {
+                //     return sprintf("mysqldump -u%s -p'%s' %s > {$this->sql_file} 2>&1", DB_USER, DB_PASSWORD, DB_NAME);
+                // }
                 return sprintf("php " . TASKS_DIR . "fallback_mysqldump.php {$this->output_fullpath_prefix} %s %s %s %s", DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
             default:
                 throw new Exception("Should never get here: " . __FUNCTION__);
