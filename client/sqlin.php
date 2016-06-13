@@ -138,10 +138,11 @@ class T1z_WP_Incremental_Backup_SQL_Injector {
 		$this->backup_root = $config['backup_root'];
 	}
 
-	public function get_latest_sql_filename($dir) {
+	public function get_latest_sql_filename($site) {
+		$dir = $this->backup_root . DIRECTORY_SEPARATOR . $site . DIRECTORY_SEPARATOR . 'wpib';
 	    $files = glob("$dir/*.sql");
 	    $filename = array_pop($files);
-	    return basename($filename);
+	    return $filename;
 	}
 
 	private function get_wpdb_configs() {
@@ -178,10 +179,15 @@ class T1z_WP_Incremental_Backup_SQL_Injector {
 			$drop_statements = array_map(function($table) {
 				return "drop table if exists $table;";
 			}, $tables);
-			// $sql_drop = implode("", $drop_statements);
-			// $drop_cmd = "mysql -u{$dbce->user} -p\"{$dbce->password}\" {$dbce->name} --execute \"$sql_drop\"";
-			// echo "$drop_cmd";
-			// exec($drop_cmd, $output, $ret);
+			$sql_drop = implode("", $drop_statements);
+			$drop_cmd = "mysql -u{$dbce->user} -p\"{$dbce->password}\" {$dbce->name} --execute \"$sql_drop\"";
+			echo "$drop_cmd";
+			exec($drop_cmd, $output, $ret);
+
+			$sql_dump = $this->get_latest_sql_filename($site);
+			$inject_cmd = "mysql -u{$dbce->user} -p\"{$dbce->password}\" {$dbce->name} < $sql_dump";
+			echo "$inject_cmd\n";
+			exec($inject_cmd, $output, $ret);
 			// var_dump($output);
 			// echo "$ret\n";
 			// exec($prepare_cmd, $output, $ret);
@@ -205,11 +211,22 @@ class T1z_WP_Incremental_Backup_SQL_Injector {
 		$mysql_existing_users = $this->get_mysql_users();
 
 		$mysql_users_to_create = [];
+		$sites = array_keys($this->wpdb_configs);
+		$num_sites = count($sites);
+		echo "Creating $num_sites databases for sites " . implode(', ', $sites);
 		foreach($this->wpdb_configs as $site => $db_config) {
 			$name = $db_config['name'];
 			$user = $db_config['user'];
 			$host = $db_config['host'];
 			$pass = $db_config['password'];
+		    $sql = "CREATE DATABASE IF NOT EXISTS $name;" .
+		        "GRANT ALL ON $name.* TO '$user'@'localhost'; " .
+		        "FLUSH PRIVILEGES;";
+	        $mysql_cmd = "mysql -uroot -p$my_root_pass --execute \"$sql\"";
+	        exec($mysql_cmd, $output, $ret);
+	        echo "Output for DB CREATION (code: $ret):\n";
+	        var_dump($output);
+
 			if (array_search($user, $mysql_existing_users) !== false) {
 				echo "User $user *already exists*\n";
 				continue;
@@ -219,12 +236,11 @@ class T1z_WP_Incremental_Backup_SQL_Injector {
 				continue;
 			}
 			try {
-				$sql = "CREATE DATABASE IF NOT EXISTS $name;" .
-			        "CREATE USER '$user'@'localhost' IDENTIFIED BY '$pass'; " .
-			        "GRANT ALL ON $name.* TO '$user'@'localhost'; " .
-			        "FLUSH PRIVILEGES;";
+				$sql = "CREATE USER '$user'@'localhost' IDENTIFIED BY '$pass'; ";
 		        $mysql_cmd = "mysql -uroot -p$my_root_pass --execute \"$sql\"";
 		        exec($mysql_cmd, $output, $ret);
+		        echo "Output for USER CREATION (code: $ret):\n";
+		        var_dump($output);
 			} catch(Exception $e) {
 				echo $e->getMessage() . "\n";
 				continue;

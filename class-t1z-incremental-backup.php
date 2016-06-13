@@ -196,7 +196,7 @@ class T1z_Incremental_Backup {
             case 'sql':
                 $mysqldump_bin = $this->get_mysqldump_binary();
                 if(! empty($mysqldump_bin)) {
-                    return sprintf("mysqldump -u%s -p\"%s\" %s > {$this->sql_file}", DB_USER, DB_PASSWORD, DB_NAME);
+                    return sprintf("mysqldump -u%s -p'%s' %s > {$this->sql_file}", DB_USER, DB_PASSWORD, DB_NAME);
                 }
                 return sprintf("php " . TASKS_DIR . "fallback_mysqldump.php {$this->output_fullpath_prefix} %s %s %s %s", DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
             default:
