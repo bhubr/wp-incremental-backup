@@ -5,6 +5,8 @@ require 'common/constants.php';
 require 'class-t1z-wpib-exception.php';
 define('CLEANUP_AFTER_ZIP', false);
 define('TASKS_DIR', __DIR__ . '/tasks/');
+define('DEFAULT_TIMEOUT', 60);
+
 class T1z_Incremental_Backup {
 
     /**
@@ -110,6 +112,7 @@ class T1z_Incremental_Backup {
         $this->progress = "{$this->output_fullpath_prefix}.run";
         $this->output_log = $this->output_fullpath_prefix . '_log.csv';
         $this->php_timeout = ini_get('max_execution_time');
+        if (empty($this->php_timeout)) $this->php_timeout = DEFAULT_TIMEOUT;
 
         $this->md5_csv_file = $this->output_dir . "/list.csv";
         $this->tar_file_src_list = $this->output_dir . DIRECTORY_SEPARATOR . 'archive.txt';
@@ -271,7 +274,10 @@ class T1z_Incremental_Backup {
         try {
             $pidfile_content = file_get_contents($pidfile);
             $this->pid = trim($pidfile_content);
-            if (!$bg->isRunning($this->pid)) throw new Exception("Process {$this->pid} is not running!");
+            $generated_files_ok = file_exists($generated_file1)) && (empty($generated_file2) || file_exists($generated_file2));
+            if (! $generated_files_ok && !$bg->isRunning($this->pid)) {
+                throw new Exception("Process {$this->pid} is not running!");
+            }
         } catch(Exception $e) {
             throw $e;
         }
@@ -473,6 +479,7 @@ class T1z_Incremental_Backup {
             'datetime'   => $this->datetime,
             // 'cmd' => $this->cmd_dbg,
             'files'      => $this->get_output_files($step),
+            'timeout' => $this->php_timeout,
             'step'       => $step,
             'done'       => $done,
             'pid'        => ! $done ? (int)$this->pid : null,
@@ -516,6 +523,7 @@ class T1z_Incremental_Backup {
         $status = [
             'step' => $current_step,
             'files' => $this->get_output_files($current_step),
+            'timeout' => $this->php_timeout,
             'done' => $done,
             'pid'  => ! $done ? (int)$this->pid : null,
             'kb_written' => $output_dir_size_diff
