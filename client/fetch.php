@@ -61,13 +61,14 @@ class T1z_WP_Incremental_Backup_Client {
 	 */
 	public function run() {
 		foreach ($this->config as $site => $config) {
-			echo "\n-----===== Run process for site: $site =====-----\n\n";
+			printf ("\n\n *******   Begin process for site: %25s   ********\n", $site);
+
 			if (substr($config['url'], -1) !== '/') {
 				$config['url'] .= '/';
 			}
 			$this->get_login($config);
 			$this->post_login($config);
-			$this->post_generate_backup($config);
+			$this->post_generate_backup($config, $site);
 			$this->get_fetch_backup_and_concat($config, $site);
 		}
 		curl_close($this->ch);
@@ -89,7 +90,7 @@ class T1z_WP_Incremental_Backup_Client {
 		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . $login_url);
 		$result = curl_exec ($this->ch);
 		if (! $result) die("[get_login] cURL error: " . curl_error($this->ch) . "\n");
-		if (WPIB_CLIENT_DEBUG_MODE) $this->log('GET login page', $result);
+		// if (WPIB_CLIENT_DEBUG_MODE) $this->log('GET login page', $result);
 	}
 
 	/**
@@ -103,57 +104,78 @@ class T1z_WP_Incremental_Backup_Client {
 		curl_setopt ($this->ch, CURLOPT_POST, 1);
 		$result = curl_exec ($this->ch);
 		if (! $result) die("[post_login] cURL error: " . curl_error($this->ch) . "\n");
-		if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST login credentials', $result);
+		// if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST login credentials', $result);
 	}
 
 	/**
 	 * POST request to generate backup
 	 */
-	private function post_generate_backup($config) {
+	private function post_generate_backup($config, $site) {
+
 		// clear POST data
 		curl_setopt ($this->ch, CURLOPT_POSTFIELDS, "");
+
 		// base URL (step param will be appended later)
 		$gen_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_generate";
 		$check_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_check_progress";
+
 		// various steps of process
 		$steps = ['lists', 'md5', 'tar', 'sql', 'zip'];
+
 		foreach($steps as $step) {
 			curl_setopt ($this->ch, CURLOPT_URL, "$gen_url&step=$step");
-			echo "$step ==> generate ($gen_url&step=$step)\n";
+			printf(" * Start step %5s", $step);
+			// "$step ==> generate ($gen_url&step=$step)";
+
 			// Send request and die on cURL error
 			$json_response = curl_exec ($this->ch);
 			$http_code = curl_getinfo($this->ch, CURLINFO_HTTP_CODE);
+
+			// Die on HTTP error
 			if ($http_code !== 200) {
-				die("HTTP error: $json_response\n");
+				die(" !!! HTTP error: $json_response\n");
 			}
-			var_dump($json_response);
-			if ($json_response === false) die("[post_generate_backup] cURL error: " . curl_error($this->ch));
+
+			// Die on cURL error
+			if (empty($json_response)) die(" !!! [post_generate_backup] cURL error: " . curl_error($this->ch) . "\n");
+var_dump($json_response);
+			// Parse JSON response
 			$parsed_response = json_decode($json_response);
-			var_dump($parsed_response);
+			echo " ($parsed_response->step_of_total)  ==>  .";
+			$num_calls = 1;
+
+
+			// var_dump($parsed_response);
 			// Parse response and die on error
 			curl_setopt ($this->ch, CURLOPT_URL, "$check_url&step=$step");
 			while($parsed_response->done === false) {
-				echo "$step ==> check ($check_url&step=$step)\n";
+				// echo "$step ==> check ($check_url&step=$step)\n";
+				echo ".";
+				$num_calls += 1;
 				
 
 				$json_response = curl_exec ($this->ch);
 				$parsed_response = json_decode($json_response);
-				var_dump($json_response);
+				// var_dump($json_response);
 				// file_put_contents(__DIR__ . '/fetch_dbg.html', $json_response);
-				var_dump($parsed_response);
-				sleep(1);
+				// var_dump($parsed_response);
+				// sleep(1);
 			}
+			$padding = 31 - $num_calls;
+			printf("%{$padding}s", "OK *\n");
+
 
 			// if ($parsed_response->success === false) {
 			// 	die("[post_generate_backup] error:\n * type: {$parsed_response->error_type}\n * details: {$parsed_response->error_details}\n");
 			// }
 			
 
-			if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST generate backup', $this->zip_filename);
+			// if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST generate backup', $this->zip_filename);
 
 		}
 		$this->zip_filename = basename($parsed_response->files[0]);
-		echo "\n\nProcess done! ZIP filename: {$this->zip_filename}\n";
+		printf(" * Process done for %25s! *\n", $site);
+		printf(" * Output ZIP filename: %38s *\n", $this->zip_filename);
 		
 	}
 

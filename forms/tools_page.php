@@ -35,10 +35,6 @@
 		<td><?php echo $db_size; ?></td>
 	</tr>
 	<tr>
-		<td>Thread library</td>
-		<td><?php echo $has_thread; ?></td>
-	</tr>
-	<tr>
 		<td>Activation id</td>
 		<td><?php echo $this->activation_id; ?></td>
 	</tr>

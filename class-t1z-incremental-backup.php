@@ -4,7 +4,7 @@ require 'vendor/autoload.php';
 require 'common/constants.php';
 require 'class-t1z-wpib-exception.php';
 define('CLEANUP_AFTER_ZIP', false);
-
+define('TASKS_DIR', __DIR__ . '/tasks/');
 class T1z_Incremental_Backup {
 
     /**
@@ -178,9 +178,9 @@ class T1z_Incremental_Backup {
         // $md5file = $this->md5_csv_file;
         switch($step) {
             case 'lists':
-                return "php " . __DIR__ . "/deleted_walk.php %s %s {$this->input_dir}";
+                return "php " . TASKS_DIR . "run_walker_del_files.php %s %s {$this->input_dir}";
             case 'md5':
-                return "php " . __DIR__ . "/md5_walk.php %s %s {$this->input_dir}";
+                return "php " . TASKS_DIR . "run_walker_md5_csv.php %s %s {$this->input_dir}";
             case 'tar':
                 return "cd {$this->input_dir}; tar c -T {$this->tar_file_src_list} -f %s";
             case 'zip':
@@ -193,14 +193,14 @@ class T1z_Incremental_Backup {
                     return "cd {$this->output_dir}; zip {$this->zip_file} $to_zip";    
                 }
                 // die("php " . __DIR__ . "/zip_fallback.php {$this->output_fullpath_prefix}");
-                return "php " . __DIR__ . "/zip_fallback.php {$this->output_fullpath_prefix}";
+                return "php " . TASKS_DIR . "fallback_zip.php {$this->output_fullpath_prefix}";
             case 'sql':
                 $mysqldump_bin = $this->get_mysqldump_binary();
                 if(! empty($mysqldump_bin)) {
                     return sprintf("mysqldump -u%s -p\"%s\" %s > {$this->sql_file}", DB_USER, DB_PASSWORD, DB_NAME);
                 }
                 // die(sprintf("php " . __DIR__ . "/mysqldump_fallback.php {$this->output_fullpath_prefix} %s %s %s %s", DB_HOST, DB_NAME, DB_USER, DB_PASSWORD));
-                return sprintf("php " . __DIR__ . "/mysqldump_fallback.php {$this->output_fullpath_prefix} %s %s %s %s", DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
+                return sprintf("php " . TASKS_DIR . "fallback_mysqldump.php {$this->output_fullpath_prefix} %s %s %s %s", DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
             default:
                 throw new Exception("Should never get here: " . __FUNCTION__);
         }
