@@ -21,6 +21,6 @@ try {
     $dump = new IMysqldump\Mysqldump("mysql:host={$host};dbname={$db}", $user, $pass);
     $dump->start("{$output_fullpath_prefix}.sql");
 } catch (\Exception $e) {
-    die($e->getMessage() . "\n");
+    die("[MySQLdump/PHP] " . $e->getMessage() . "\n");
 }
 echo "done: " . filesize("{$output_fullpath_prefix}.sql") . " bytes written\n";
