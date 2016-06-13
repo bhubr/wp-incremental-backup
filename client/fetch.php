@@ -207,7 +207,7 @@ class T1z_WP_Incremental_Backup_Client {
 				$cmd3 = "cd $wp_expanded_dir; rm $files_to_delete_str";
 				echo shell_exec($cmd3);
 
-				unlink($to_delete_list_file);
+				// unlink($to_delete_list_file);
 			}
 		}
 	}

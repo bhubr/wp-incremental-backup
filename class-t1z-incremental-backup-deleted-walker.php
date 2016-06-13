@@ -19,8 +19,7 @@ class T1z_Incremental_Backup_Deleted_Walker {
     }
 
     public function run() {
-        $has_deleted = $this->prepare_and_write_delete_list();
-        if ($has_deleted) $this->append_archive_list();
+        $this->prepare_and_write_delete_list();
     }
 
     /**
@@ -67,9 +66,7 @@ class T1z_Incremental_Backup_Deleted_Walker {
                 $files_to_delete[] = $name;
             }
         }
-// fwrite($fh, "\n" . implode("\n", $files_to_delete));
-// fclose($fh);
-        return $this->write_delete_list($files_to_delete);
+        if (!empty($files_to_delete)) $this->write_delete_list($files_to_delete);
     }
 
 
