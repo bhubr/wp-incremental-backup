@@ -80,7 +80,7 @@ class T1z_Incremental_Backup {
     /**
      * Process steps
      */
-    private $steps = ['md5', 'lists', 'tar', 'sql', 'zip'];
+    private $steps = ['lists', 'md5', 'tar', 'sql', 'zip'];
 
     /**
      * Task running
@@ -122,8 +122,8 @@ class T1z_Incremental_Backup {
 
     private function setup_steps() {
         $this->output_files = [
-            'md5'   => [$this->md5_csv_file, $this->tar_file_src_list],
             'lists' => [$this->tar_file_src_list, $this->deleted_files_list],
+            'md5'   => [$this->md5_csv_file, $this->tar_file_src_list],
             'tar'   => $this->tar_file,
             'sql'   => $this->sql_file,
             'zip'   => $this->zip_file
@@ -177,10 +177,10 @@ class T1z_Incremental_Backup {
         // $zipfile = "{$this->output_fullpath_prefix}.zip";
         // $md5file = $this->md5_csv_file;
         switch($step) {
-            case 'md5':
-                return "php " . __DIR__ . "/md5_walk.php %s %s {$this->input_dir}";
             case 'lists':
                 return "php " . __DIR__ . "/deleted_walk.php %s %s {$this->input_dir}";
+            case 'md5':
+                return "php " . __DIR__ . "/md5_walk.php %s %s {$this->input_dir}";
             case 'tar':
                 return "cd {$this->input_dir}; tar c -T {$this->tar_file_src_list} -f %s";
             case 'zip':
@@ -206,42 +206,18 @@ class T1z_Incremental_Backup {
         }
     }
 
-    /**
-     * Write TAR archive
-     */
-    private function write_tar_archive($files_to_archive) {
-        $list = $this->output_dir . DIRECTORY_SEPARATOR . 'archive.txt';
-        $this->write_archive_list($files_to_archive, $list);
-        $tarfile = "{$this->output_fullpath_prefix}.tar";
-        // $tar_lock = "{$tarfile}.lock";
-        // $cmd = "touch $tar_lock; cd {$this->input_dir}; tar cv -T {$list} -f $tarfile; rm $tar_lock";
-        $cmd = "cd {$this->input_dir}; %s cv -T {$list} -f %s";
-        // $output = [];
-        // $return_var = 0;
-        // $outputfile = "{$this->output_fullpath_prefix}_out.txt";
-        // $pidfile = "{$this->output_fullpath_prefix}_pid.txt";
-        // exec(sprintf("%s > %s 2>&1 & echo $! >> %s", $cmd, $outputfile, $pidfile));
-        $this->start_background_task($cmd, $tarfile, 'tar');
-
-        // exec($cmd, $output, $return_var);
-        // if ($return_var !== 0) {
-        //     throw new T1z_WPIB_Exception("Error while creating output TAR file {$tarfile}", T1z_WPIB_Exception::FILES);    
-        // }
-    }
-
     private function current_time_diff() {
         return time() - $this->start_timestamp;
     }
 
     private function not_about_to_timeout() {
-        // return $this->current_time_diff() < $this->php_timeout / 2;
-        return $this->current_time_diff() < 4;
+        return $this->current_time_diff() < $this->php_timeout / 2;
+        // return $this->current_time_diff() < 4;
     }
 
     private function check_is_running() {
         try{
             $result = shell_exec(sprintf("ps %d", $this->pid));
-            // var_dump($result);
             if( count(preg_split("/\n/", $result)) > 2){
                 return true;
             }
@@ -264,8 +240,6 @@ class T1z_Incremental_Backup {
         $step_line = "\n" . $step . ':' . $this->pid . ':' . $output_dir_size;
         fwrite($fh, $step_line);
         fclose($fh);
-        // file_put_contents($this->progress, $this->running_task);
-        // $this->file_wip = $generated_file;
     }
 
     private function start_background_task($st_output_dir_sz, $cmd_format, $step, $generated_file1, $generated_file2 = "") {
@@ -278,7 +252,6 @@ class T1z_Incremental_Backup {
         // die("$cmd<br>$cmdoutfile<br>$pidfile");
         $bg = new diversen\bgJob();
         $bg->execute($cmd, $cmdoutfile, $pidfile);
-        usleep(10000);
         try {
             $pidfile_content = file_get_contents($pidfile);
             $this->pid = trim($pidfile_content);    

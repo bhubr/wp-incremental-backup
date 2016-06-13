@@ -116,7 +116,7 @@ class T1z_WP_Incremental_Backup_Client {
 		$gen_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_generate";
 		$check_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_check_progress";
 		// various steps of process
-		$steps = ['md5', 'lists', 'tar', 'sql', 'zip'];
+		$steps = ['lists', 'md5', 'tar', 'sql', 'zip'];
 		foreach($steps as $step) {
 			curl_setopt ($this->ch, CURLOPT_URL, "$gen_url&step=$step");
 			echo "$step ==> generate ($gen_url&step=$step)\n";
