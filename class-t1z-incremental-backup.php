@@ -274,10 +274,10 @@ class T1z_Incremental_Backup {
         try {
             $pidfile_content = file_get_contents($pidfile);
             $this->pid = trim($pidfile_content);
-            $generated_files_ok = file_exists($generated_file1) && (empty($generated_file2) || file_exists($generated_file2));
-            if (! $generated_files_ok && !$bg->isRunning($this->pid)) {
-                throw new Exception("Process {$this->pid} is not running!");
-            }
+            // $generated_files_ok = file_exists($generated_file1) && (empty($generated_file2) || file_exists($generated_file2));
+            // if (! $generated_files_ok && !$bg->isRunning($this->pid)) {
+            //     throw new Exception("Process {$this->pid} is not running!");
+            // }
         } catch(Exception $e) {
             throw $e;
         }
