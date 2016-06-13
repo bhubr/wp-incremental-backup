@@ -7,12 +7,10 @@ class T1z_Incremental_Backup_Deleted_Walker {
 
     private $input_dir;
     private $output_dir;
-    private $archive_list;
     private $delete_list;
-    public function __construct($archive_list, $delete_list, $input_dir) {
-        $this->archive_list = $archive_list;
+    public function __construct($delete_list, $input_dir, $output_dir) {
         $this->delete_list = $delete_list;
-        $this->output_dir = dirname($archive_list);
+        $this->output_dir = $output_dir;
         $this->output_list_csv = $this->output_dir . '/list.csv';
         $this->input_dir = $input_dir;
         $this->read();
@@ -66,7 +64,8 @@ class T1z_Incremental_Backup_Deleted_Walker {
                 $files_to_delete[] = $name;
             }
         }
-        if (!empty($files_to_delete)) $this->write_delete_list($files_to_delete);
+        //if (!empty($files_to_delete))
+        $this->write_delete_list($files_to_delete);
     }
 
 
