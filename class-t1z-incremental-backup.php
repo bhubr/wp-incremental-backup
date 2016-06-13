@@ -198,7 +198,7 @@ class T1z_Incremental_Backup {
                 // if(! empty($mysqldump_bin)) {
                 //     return sprintf("mysqldump -u%s -p'%s' %s > {$this->sql_file} 2>&1", DB_USER, DB_PASSWORD, DB_NAME);
                 // }
-                return sprintf("php " . TASKS_DIR . "fallback_mysqldump.php {$this->output_fullpath_prefix} %s %s %s %s", DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
+                return sprintf("php " . TASKS_DIR . "fallback_mysqldump.php {$this->output_fullpath_prefix} %s %s %s '%s'", DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
             default:
                 throw new Exception("Should never get here: " . __FUNCTION__);
         }
