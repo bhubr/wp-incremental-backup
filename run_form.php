@@ -15,6 +15,10 @@
 		<td><?php echo $uname; ?></td>
 	</tr>
 	<tr>
+		<td>System path</td>
+		<td><?php echo $sys_path; ?></td>
+	</tr>
+	<tr>
 		<td>PHP version</td>
 		<td><?php echo $php_version; ?></td>
 	</tr>

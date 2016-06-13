@@ -253,11 +253,21 @@ class T1z_Incremental_Backup {
         $func_args = func_get_args();
         $sprintf_args = array_slice($func_args, 3);
         $cmd = vsprintf($cmd_format, $sprintf_args);
+        // $this->cmd_dbg = $cmd;
         $cmdoutfile = "{$this->output_fullpath_prefix}_{$step}_out.txt";
         $pidfile = "{$this->output_fullpath_prefix}_{$step}.pid";
+        // die("$cmd<br>$cmdoutfile<br>$pidfile");
         $bg = new diversen\bgJob();
         $bg->execute($cmd, $cmdoutfile, $pidfile);
-        $this->pid = trim(file_get_contents($pidfile));
+        usleep(10000);
+        try {
+            $pidfile_content = file_get_contents($pidfile);
+            $this->pid = trim($pidfile_content);    
+        } catch(Exception $e) {
+            var_dump($e);
+            var_dump($cmd);
+        }
+        
         $this->write_progress($step, $this->pid, $st_output_dir_sz);
         return $this->check_running_task_loop();
     }
@@ -272,13 +282,13 @@ class T1z_Incremental_Backup {
         }
     }
 
-    public function get_latest_zip_filename() {
+    private function get_latest_zip_filename() {
         $files = glob("{$this->output_dir}/*.zip");
         $filename = array_pop($files);
         return basename($filename);
     }
 
-    public function get_latest_run_filename() {
+    private function get_latest_run_filename() {
         $files = glob("{$this->output_dir}/*.run");
         if (count($files) === 0) {
             throw new T1z_WPIB_Exception("No run filename found", T1z_WPIB_Exception::FILES);
@@ -287,11 +297,14 @@ class T1z_Incremental_Backup {
         return basename($filename);
     }
 
-    public function get_process_datetime() {
+    private function get_latest_run() {
         $latest_run_filename = $this->get_latest_run_filename();
-        $latest_run = file($this->output_dir . DIRECTORY_SEPARATOR . $latest_run_filename);
-        // die($this->output_dir . DIRECTORY_SEPARATOR . $latest_run_filename);
-        $this->datetime = array_shift($latest_run);
+        return file($this->output_dir . DIRECTORY_SEPARATOR . $latest_run_filename);
+    }
+
+    public function get_process_datetime() {
+        $latest_run = $this->get_latest_run();
+        $this->datetime = trim(array_shift($latest_run));
         return $this->datetime;
     }
 
@@ -377,6 +390,7 @@ class T1z_Incremental_Backup {
         }
         else {
             $this->datetime = $this->get_process_datetime();
+            // var_dump($this->datetime);
         }
         $this->setup_process_vars();
         // $step_descriptor = $steps[$step];
@@ -389,12 +403,13 @@ class T1z_Incremental_Backup {
             [$st_output_dir_sz, $cmd, $step],
             $this->get_output_files($step)
         );
-        // var_dump($task_args);
+        // var_dump($task_args);die();
 
         $done = call_user_func_array([$this, 'start_background_task'], $task_args);
         $output_dir_size_diff = $this->get_output_dir_size() - $st_output_dir_sz;
         $status = [
             'datetime' => $this->datetime,
+            // 'cmd' => $this->cmd_dbg,
             'files' => $this->get_output_files($step),
             'step' => $step,
             'done' => $done,
@@ -418,9 +433,10 @@ class T1z_Incremental_Backup {
         $this->datetime = $this->get_process_datetime();
         $this->setup_process_vars();
         try {
-            $run = $this->get_latest_run_filename();
+            $run = $this->get_latest_run();
             // echo $run;
-            $run_info = file_get_contents("{$this->output_dir}/$run");
+            $latest_run = $this->get_latest_run();
+            $run_info = array_pop($latest_run);
             $info_bits = explode(':', $run_info);
             // var_dump($info_bits);
             $current_step = $info_bits[0];

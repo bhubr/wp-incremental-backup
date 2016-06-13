@@ -116,7 +116,7 @@ class T1z_WP_Incremental_Backup_Client {
 		$gen_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_generate";
 		$check_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_check_progress";
 		// various steps of process
-		$steps = ['md5', 'list', 'tar', 'sql', 'zip'];
+		$steps = ['md5', 'lists', 'tar', 'sql', 'zip'];
 		foreach($steps as $step) {
 			curl_setopt ($this->ch, CURLOPT_URL, "$gen_url&step=$step");
 			echo "$step ==> generate ($gen_url&step=$step)\n";
@@ -129,7 +129,7 @@ class T1z_WP_Incremental_Backup_Client {
 			var_dump($json_response);
 			if ($json_response === false) die("[post_generate_backup] cURL error: " . curl_error($this->ch));
 			$parsed_response = json_decode($json_response);
-			// var_dump($parsed_response);
+			var_dump($parsed_response);
 			// Parse response and die on error
 			curl_setopt ($this->ch, CURLOPT_URL, "$check_url&step=$step");
 			while($parsed_response->done === false) {
@@ -138,7 +138,7 @@ class T1z_WP_Incremental_Backup_Client {
 
 				$json_response = curl_exec ($this->ch);
 				$parsed_response = json_decode($json_response);
-				var_dump($json_response);
+				var_dump($parsed_response);
 				sleep(1);
 			}
 
