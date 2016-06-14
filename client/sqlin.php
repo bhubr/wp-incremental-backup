@@ -166,36 +166,41 @@ class T1z_WP_Incremental_Backup_SQL_Injector {
 				echo "Skip: $site\n";
 				continue;
 			}
-			// var_dump($dbce);
 
-			// $pdo = new PDO(
-			//     "mysql:host={$dbce->host};dbname={$dbce->name}",
-			//     $dbce->user,
-			//     $dbce->password
-		 //    );
 
 			$show_tables_cmd = "mysql -u{$dbce->user} -p{$dbce->password} {$dbce->name} -Nse 'show tables'";
 			exec($show_tables_cmd, $tables, $ret);
 			$drop_statements = array_map(function($table) {
-				return "drop table if exists $table;";
+				return "drop table if exists $table; ";
 			}, $tables);
 			$sql_drop = implode("", $drop_statements);
-			$drop_cmd = "mysql -u{$dbce->user} -p\"{$dbce->password}\" {$dbce->name} --execute \"$sql_drop\"";
+			$drop_cmd = "mysql -u{$dbce->user} -p'{$dbce->password}' {$dbce->name} --execute \"$sql_drop\"";
 			echo "$drop_cmd";
 			exec($drop_cmd, $output, $ret);
 
 			$sql_dump = $this->get_latest_sql_filename($site);
-			$inject_cmd = "mysql -u{$dbce->user} -p\"{$dbce->password}\" {$dbce->name} < $sql_dump";
+			$inject_cmd = "mysql -u{$dbce->user} -p'{$dbce->password}' {$dbce->name} < $sql_dump";
 			echo "$inject_cmd\n";
 			exec($inject_cmd, $output, $ret);
-			// var_dump($output);
-			// echo "$ret\n";
-			// exec($prepare_cmd, $output, $ret);
+
 			
 			// Create PDO MySQL instance
 			// Truncate all db tables
 			// Inject new dump
 			// Replace strings
+			$has_https = substr($config['url'], 0, 5) === 'https';
+			$scheme_len = $has_https ? 8 : 7;
+			$url_len = strlen($config['url']);
+			$has_tr_slash = $config['url'][$url_len - 1] === '/';
+			// echo $has_tr_slash ? 'yes' : 'no';
+			$site_url = $has_tr_slash ? substr($config['url'], $scheme_len, $url_len - 1) : $config['url'];
+			$wp_dir = $this->backup_root . DIRECTORY_SEPARATOR . $site . DIRECTORY_SEPARATOR . 'wordpress';
+			$cmd = "cd $wp_dir; wp search-replace 'http://$site_url' 'http://" . $this->replace_domain_ext($site) . "'" ;
+			echo $cmd . "\n";
+			exec($cmd, $output, $ret);
+			$cmd = "cd $wp_dir; wp search-replace 'https://$site_url' 'http://" . $this->replace_domain_ext($site) . "'" ;
+			echo $cmd . "\n";
+			exec($cmd, $output, $ret);
 		}
 	}
 
