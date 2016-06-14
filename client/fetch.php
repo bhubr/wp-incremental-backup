@@ -69,6 +69,7 @@ class T1z_WP_Incremental_Backup_Client {
 			$this->get_login($config);
 			$this->get_login($config);
 			$this->post_login($config);
+			$this->get_admin($config);
 			$this->post_generate_backup($config, $site);
 			$this->get_fetch_backup_and_concat($config, $site);
 		}
@@ -91,21 +92,45 @@ class T1z_WP_Incremental_Backup_Client {
 		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . $login_url);
 		$result = curl_exec ($this->ch);
 		if (! $result) die("[get_login] cURL error: " . curl_error($this->ch) . "\n");
-		// if (WPIB_CLIENT_DEBUG_MODE) $this->log('GET login page', $result);
+		if (WPIB_CLIENT_DEBUG_MODE) $this->log('GET login page', $result);
 	}
 
 	/**
 	 * POST request to sign in to WordPress
 	 */
 	private function post_login($config) {
-		$postdata = "log=". $config['username'] ."&pwd=". urlencode($config['password']) ."&wp-submit=Log%20In&redirect_to=". $config['url'] ."wp-admin/&testcookie=1";
+		$postdata = "log=". $config['username'] ."&pwd=". urlencode($config['password']) ."&wp-submit=Se+connecter&redirect_to=". $config['url'] ."wp-admin/&testcookie=1";
 		// die($config['password']);
 
 		curl_setopt ($this->ch, CURLOPT_POSTFIELDS, $postdata);
 		curl_setopt ($this->ch, CURLOPT_POST, 1);
 		$result = curl_exec ($this->ch);
+		$lines = explode("\n", $result);
+		if (count($lines) < 2) {
+			echo "This doesn't seem like an HTML output:\n";
+			var_dump($lines);
+			exit;
+		}
+		if (! preg_match('/.*wp\-toolbar.*/', $lines[2])) {
+			echo "There should be 'wp-toolbar' on this line:\n";
+			echo $lines[2] . "\n";
+			var_dump($lines);
+			// exit;
+		}
 		if (! $result) die("[post_login] cURL error: " . curl_error($this->ch) . "\n");
-		// if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST login credentials', $result);
+		if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST login credentials', $result);
+	}
+
+	/**
+	 * GET WordPress admin page
+	 */
+	private function get_admin($config) {
+		curl_setopt ($this->ch, CURLOPT_POST, 0);
+		curl_setopt ($this->ch, CURLOPT_POSTFIELDS, "");
+		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . 'wp-admin/');
+		$result = curl_exec ($this->ch);
+		if (! $result) die("[get_login] cURL error: " . curl_error($this->ch) . "\n");
+		if (WPIB_CLIENT_DEBUG_MODE) $this->log('GET login page', $result);
 	}
 
 	/**
@@ -124,7 +149,9 @@ class T1z_WP_Incremental_Backup_Client {
 		$steps = ['lists', 'md5', 'tar', 'sql', 'zip'];
 
 		foreach($steps as $step) {
-			curl_setopt ($this->ch, CURLOPT_URL, "$gen_url&step=$step");
+			$url = "$gen_url&step=$step";
+			if(isset($config['php_path'])) $url .= '&php_path=' . urlencode($config['php_path']);
+			curl_setopt ($this->ch, CURLOPT_URL, $url);
 			printf(" * Start step %5s", $step);
 			// "$step ==> generate ($gen_url&step=$step)";
 
