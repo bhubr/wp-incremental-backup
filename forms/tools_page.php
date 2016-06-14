@@ -23,6 +23,10 @@
 		<td><?php echo $php_version; ?></td>
 	</tr>
 	<tr>
+		<td>PHP5 path</td>
+		<td><?php echo $php5_path; ?></td>
+	</tr>
+	<tr>
 		<td>zip binary</td>
 		<td><?php echo $zip_bin; ?></td>
 	</tr>
