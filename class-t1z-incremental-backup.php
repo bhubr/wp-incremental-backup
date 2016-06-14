@@ -175,12 +175,17 @@ class T1z_Incremental_Backup {
         return count($which_msd_out) ? $which_msd_out[0] : "";
     }
 
+    private function get_php_path() {
+        return isset($_GET['php_path']) ? $_GET['php_path'] : '';
+    }
+
     private function get_cmd($step) {
+        $php_path = $this->get_php_path();
         switch($step) {
             case 'lists':
-                return "php " . TASKS_DIR . "run_walker_del_files.php %s {$this->input_dir} {$this->output_dir}";
+                return "{$php_path}php " . TASKS_DIR . "run_walker_del_files.php %s {$this->input_dir} {$this->output_dir}";
             case 'md5':
-                return "php " . TASKS_DIR . "run_walker_md5_csv.php %s %s {$this->input_dir}";
+                return "{$php_path}php " . TASKS_DIR . "run_walker_md5_csv.php %s %s {$this->input_dir}";
             case 'tar':
                 return "cd {$this->input_dir}; tar c -T {$this->tar_file_src_list} -f %s";
             case 'zip':
@@ -192,13 +197,13 @@ class T1z_Incremental_Backup {
                 // if(! empty($zip_bin)) {
                 //     return "cd {$this->output_dir}; zip {$this->zip_file} $to_zip";    
                 // }
-                return "php " . TASKS_DIR . "fallback_zip.php {$this->output_fullpath_prefix}";
+                return "{$php_path}php " . TASKS_DIR . "fallback_zip.php {$this->output_fullpath_prefix}";
             case 'sql':
                 // $mysqldump_bin = $this->get_mysqldump_binary();
                 // if(! empty($mysqldump_bin)) {
                 //     return sprintf("mysqldump -u%s -p'%s' %s > {$this->sql_file} 2>&1", DB_USER, DB_PASSWORD, DB_NAME);
                 // }
-                return sprintf("php " . TASKS_DIR . "fallback_mysqldump.php {$this->output_fullpath_prefix} %s %s %s '%s'", DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
+                return sprintf("{$php_path}php " . TASKS_DIR . "fallback_mysqldump.php {$this->output_fullpath_prefix} %s %s %s '%s'", DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
             default:
                 throw new Exception("Should never get here: " . __FUNCTION__);
         }
@@ -232,9 +237,9 @@ class T1z_Incremental_Backup {
         return false;
     }
 
-    private function write_progress($step, $pid, $output_dir_size) {
+    private function write_progress($step, $pid, $output_dir_size, $cmd) {
         $fh = fopen($this->progress, 'a+');
-        $step_line = "\n" . $step . ':' . $this->pid . ':' . $output_dir_size;
+        $step_line = "\n" . $step . ':' . $this->pid . ':' . $output_dir_size . ':' . $cmd;
         fwrite($fh, $step_line);
         fclose($fh);
     }
@@ -282,7 +287,7 @@ class T1z_Incremental_Backup {
             throw $e;
         }
         
-        $this->write_progress($step, $this->pid, $st_output_dir_sz);
+        $this->write_progress($step, $this->pid, $st_output_dir_sz, $cmd);
         return $this->check_running_task_loop();
     }
 
