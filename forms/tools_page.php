@@ -31,12 +31,27 @@
 		<td><?php echo $zip_bin; ?></td>
 	</tr>
 	<tr>
+		<td>bzip2 binary</td>
+		<td><?php echo $bzip2_bin; ?></td>
+	</tr>
+	<tr>
 		<td>mysqldump binary</td>
 		<td><?php echo $mysqldump_bin; ?></td>
 	</tr>
 	<tr>
 		<td>WP size (MB)</td>
-		<td><?php echo $wp_size; ?></td>
+		<td>
+			<?php echo $wp_size; ?>
+			<ul>
+			<?php foreach($du_out as $line): ?>
+				<?php $line_size = $this->du_line_size($line); ?>
+				<?php if($line_size > 1000): ?>
+				<li><?php echo $line; ?></li>
+				<?php endif; ?>
+			<?php endforeach; ?>
+			</ul>
+		
+		</td>
 	</tr>
 	<tr>
 		<td>Database size (MB)</td>
@@ -54,12 +69,21 @@
 	<?php endforeach; ?>
 </table>
 
-<?php //phpinfo(); ?>
+<h3>Large files</h3>
+<ul>
+<?php foreach($large_files as $file): ?>
+	<li><?php
+		echo $file . ' (' . $this->format_filesize_as_mb($file) . ') => ';
+		// echo fnmatch($delete_filter, $file) ? '<b>delete</b>' : 'pass';
+		// if (fnmatch($delete_filter, $file)) unlink($file);
+	?></li>
+<?php endforeach; ?>
+</ul>
 
 <h3>Output dir content</h3>
 <ul>
 <?php foreach($files as $file): ?>
-	<li><a href="admin-ajax.php?action=wpib_download&amp;filename=<?php echo urlencode($file); ?>"><?php echo $file; ?></a></li>
+	<li><a href="admin-ajax.php?action=wpib_download&amp;filename=<?php echo urlencode($file); ?>"><?php echo sprintf('%s (%d)', $file, filesize($this->inc_bak->get_output_dir() . '/' . $file)); ?></a></li>
 <?php endforeach; ?>
 </ul>
 
@@ -82,7 +106,7 @@
 	<h4>Deleted files</h4>
 	<ul>
 	<?php foreach($result['deleted'] as $file): ?>
-		<li><?php echo $file; ?></li>
+		<li><?php $file; ?></li>
 	<?php endforeach; ?>
 	</ul>
 <?php else: ?>
