@@ -1,5 +1,9 @@
+.DS_Store
+dist/
+wp-incremental-backup.zip
+wp-incremental-backup.zip.bak
 composer.lock
-client/fetch.ini
+client/*.ini
 vendor/bin/
 vendor/doctrine/
 vendor/myclabs/
@@ -10,4 +14,3 @@ vendor/sebastian/
 vendor/symfony/
 vendor/filp/
 vendor/webmozart/
-client/nginx.ini
