@@ -135,6 +135,20 @@ class T1z_Incremental_Backup_WP_Plugin {
         die($response_payload);
     }
 
+    public function format_filesize_as_mb($file) {
+        return $file . sprintf('%.1f', filesize($file) / 1024 / 1024 );
+    }
+
+    public function du_line_size($line) {
+        $line_bits = explode(' ', $line);
+        return (int)$line_bits[0];
+    }
+
+    public function format_du_line_as_mb($line) {
+        $size_kb = $this->du_line_size($line);
+        return sprintf("%.1f", $size_kb / 1024);
+    }
+
     public function wpib_options_page() {
         if(isset($_GET['do_cleanup']) && $_GET['do_cleanup'] == 1) {
             $this->inc_bak->output_dir_content_cleanup();
@@ -152,14 +166,21 @@ class T1z_Incremental_Backup_WP_Plugin {
         exec('ls /usr/local/php5.6/bin/php 2>&1', $php5_out, $ret);
         $php5_path = $php5_out[0];
         $input_dir = get_home_path();
-        exec("cd $input_dir; du -k 2>&1", $du_out, $ret);
-        $wp_size = (int)$du_out[0] / 1024;
+        exec("cd $input_dir; du -k . 2>&1", $du_out, $ret);
+        $du_total = array_pop($du_out);
+        $wp_size = $this->format_du_line_as_mb($du_total);
 
         $zip_bin = $this->inc_bak->get_zip_binary();
+        $bzip2_bin = $this->inc_bak->get_bzip2_binary();
+        // exec($zip_bin, $zip_out, $ret);
         $mysqldump_bin = $this->inc_bak->get_mysqldump_binary();
+        // exec($mysqldump_bin, $mysqldump_out, $ret);
         exec('echo $PATH 2>&1', $sys_path_out, $ret);
         $sys_path = count($sys_path_out) ? $sys_path_out[0] : "n/a";
 
+        exec("find $input_dir -size +5000k 2>&1", $large_files, $ret);
+
+        // $delete_filter = '/home/labertai/www/wp-content/updraft/backup_2013-06-18-0050_Centre_de_Yoga_de_La_Bertais_a68b4ed31536*';
         // http://stackoverflow.com/questions/1733507/how-to-get-size-of-mysql-database
         $db_size_query = 'SELECT table_schema, Round(Sum(data_length + index_length) / 1024 / 1024, 1) "db_size" ' . 'FROM information_schema.tables WHERE table_schema = \'' . DB_NAME . '\' GROUP BY table_schema;';
         global $wpdb;
