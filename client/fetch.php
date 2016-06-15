@@ -6,6 +6,25 @@ define('BACKUP_ROOT', '/Volumes/Backup/Geek/Sites');
 
 require realpath(__DIR__ . '/../common/constants.php');
 
+$global_fh = null;
+
+
+function curl_write_file($cp, $data) {
+  global $global_fh;
+  $len = fwrite($global_fh, $data);
+  return $len;
+}
+
+function progress($resource,$download_size, $downloaded, $upload_size, $uploaded)
+{
+    if($download_size > 0)
+         echo $downloaded / $download_size  * 100;
+    // ob_flush();
+    // flush();
+    // sleep(1); // just to see effect
+}
+
+
 class T1z_WP_Incremental_Backup_Client {
 
 	/**
@@ -28,7 +47,6 @@ class T1z_WP_Incremental_Backup_Client {
 	 */
 	public function __construct() {
 		$this->read_config();
-		$this->setup_curl();
 	}
 
 	/**
@@ -61,19 +79,20 @@ class T1z_WP_Incremental_Backup_Client {
 	 */
 	public function run() {
 		foreach ($this->config as $site => $config) {
+			$this->setup_curl();
 			printf ("\n\n *******   Begin process for site: %25s   ********\n", $site);
 
 			if (substr($config['url'], -1) !== '/') {
 				$config['url'] .= '/';
 			}
-			$this->get_login($config);
+			// $this->get_login($config);
 			$this->get_login($config);
 			$this->post_login($config);
 			$this->get_admin($config);
 			$this->post_generate_backup($config, $site);
-			$this->get_fetch_backup_and_concat($config, $site);
+			// $this->get_fetch_backup_and_concat($config, $site);
+			curl_close($this->ch);
 		}
-		curl_close($this->ch);
 	}
 
 	/**
@@ -146,11 +165,13 @@ class T1z_WP_Incremental_Backup_Client {
 		$check_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_check_progress";
 
 		// various steps of process
-		$steps = ['lists', 'md5', 'tar', 'sql', 'zip'];
+		$steps = ['lists', 'md5', 'tar', 'sql']; //, 'zip'];
 
 		foreach($steps as $step) {
 			$url = "$gen_url&step=$step";
 			if(isset($config['php_path'])) $url .= '&php_path=' . urlencode($config['php_path']);
+			if(isset($config['exclude'])) $url .= '&exclude=' . urlencode($config['exclude']);
+			echo "Send request to: $url\n";
 			curl_setopt ($this->ch, CURLOPT_URL, $url);
 			printf(" * Start step %5s", $step);
 			// "$step ==> generate ($gen_url&step=$step)";
@@ -179,7 +200,7 @@ class T1z_WP_Incremental_Backup_Client {
 				die($json_response . "\n");
 			}
 
-var_dump($parsed_response);
+// var_dump($parsed_response);
 			// Die on process error and give details
 			if (!$parsed_response->success) {
 				echo "\n\n!!! An error occurred during processing ($step - {$parsed_response->step_of_total}). ABORTING !!!\n";
@@ -234,11 +255,8 @@ var_dump($parsed_response);
 	 * GET request to fetch backup
 	 */
 	private function get_fetch_backup_and_concat($config, $site) {
-		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/admin-ajax.php?action=wpib_download");
-		curl_setopt ($this->ch, CURLOPT_POST, 0);
-		$data = curl_exec ($this->ch);
-		if (! $data) die("[get_fetch_backup_and_concat] cURL error: " . curl_error($this->ch) . "\n");
-
+		global $global_fh;
+		// Setup output dir first
 		$dest_dir_prefix = $this->get_destination_dir($site);
 		$dest_dir = $dest_dir_prefix . DIRECTORY_SEPARATOR . "wpib";
 		$wp_expanded_dir = $dest_dir_prefix . DIRECTORY_SEPARATOR . "wordpress";
@@ -246,17 +264,97 @@ var_dump($parsed_response);
 		if (!is_dir($dest_dir)) mkdir($dest_dir, 0777, true);
 		if (!is_dir($wp_expanded_dir)) mkdir($wp_expanded_dir);
 
-		$destination = $dest_dir . DIRECTORY_SEPARATOR . $this->zip_filename;
-		$file = fopen($destination, "w+");
-		fputs($file, $data);
-		fclose($file);
+		// Open output file
+		set_time_limit(0); //prevent timeout
+
+		// $ch2 = curl_init();
+		$tmp_filename = 'output-' .time() . '.zip';
+		$destination = $dest_dir . DIRECTORY_SEPARATOR . $this->zip_filename; //  $this->zip_filename
+		$global_fh = fopen($destination, "w+");
+		if (!$global_fh) die("could not open $destination\n");
+		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/admin-ajax.php?action=wpib_download");
+		// curl_setopt($this->ch, CURLOPT_URL, "http://www.lesvaguabondes.fr/wp-content/uploads/wp-incremental-backup-output/o8mqb5/cie-les-vaguabondes_20160614-225241.zip");
+		// curl_setopt($this->ch, CURLOPT_FILE, $global_fh); //auto write to file
+
+		curl_setopt($this->ch, CURLOPT_TIMEOUT, 5040);
+		curl_setopt($this->ch, CURLOPT_POST, 0);
+		curl_setopt($this->ch, CURLOPT_VERBOSE, 0);
+		curl_setopt($this->ch, CURLOPT_POSTFIELDS,"");
+		curl_setopt($this->ch, CURLOPT_BINARYTRANSFER, 1);
+		// curl_setopt ($this->ch, CURLOPT_HTTPHEADER, array('Expect:'));
+		// curl_setopt($this->ch, CURLOPT_SSL_VERIFYHOST, 1);
+		// curl_setopt($this->ch, CURLOPT_SSL_VERIFYPEER, FALSE); 
+		// curl_setopt($this->ch, CURLOPT_SSLVERSION, 3); 
+		curl_setopt($this->ch, CURLOPT_FOLLOWLOCATION, 1);
+		// curl_setopt($this->ch, CURLOPT_TCP_KEEPALIVE, 1);
+		// curl_setopt($this->ch, CURLOPT_TCP_KEEPIDLE, 2);
+		curl_setopt($this->ch, CURLOPT_HEADER, 0);
+		curl_setopt ($this->ch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($this->ch, CURLOPT_WRITEFUNCTION, 'curl_write_file');
+		// curl_setopt($this->ch, CURLOPT_PROGRESSFUNCTION, 'progress');
+
+
+		curl_exec($this->ch);
+
+
+		// curl_close($this->ch);
+		fclose($global_fh);
+
+		// $header_size = curl_getinfo($this->ch, CURLINFO_HEADER_SIZE);
+		// $header = substr($response, 0, $header_size);
+		// var_dump($header);
+		// die();
+
+		// echo "open $destination\n";
+		// $fh = fopen($destination, "w+");
+		// if($fh === false) die("could not output file $destination\n");
+
+		// // Setup cURL
+		// curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/admin-ajax.php?action=wpib_download");
+		// curl_setopt ($this->ch, CURLOPT_POST, 0);
+		
+		// curl_setopt ($this->ch, CURLOPT_FILE, $fh);
+		// curl_setopt($this->ch, CURLOPT_BINARYTRANSFER, 1);
+		
+		// // curl_setopt($this->ch, CURLOPT_NOPROGRESS, false); // needed to make progress function work
+		// // curl_setopt($this->ch, CURLOPT_VERBOSE, 1);
+
+
+
+
+		// // ob_start();
+
+		// // echo "<pre>";
+		// // echo "Loading ...";
+
+		// // ob_flush();
+		// // flush();
+		// curl_exec ($this->ch);
+		// curl_close ($this->ch);
+		// fclose($fh);
+
+		if(filesize($destination)<= 1) {
+			echo "An error occurred: could not download $destination\n";
+			var_dump(curl_error($this->ch));
+			die();
+		}
+		// return;
+		// ob_flush();
+		// flush();
+		// ob_end_clean();
+
+		// Then, after your curl_exec call:
+
+		// if (! $data) die("[get_fetch_backup_and_concat] cURL error: " . curl_error($this->ch) . "\n");
+
+
 
 		$info = pathinfo($destination);
 		$filename_prefix =  basename($destination,'.'.$info['extension']);
 		$tar = "$filename_prefix.tar";
 		$tar_fullpath = $dest_dir . DIRECTORY_SEPARATOR . $tar;
 
-		$cmd1 = "cd $dest_dir; unzip {$this->zip_filename};";
+		$cmd1 = "cd $dest_dir; unzip " . $this->zip_filename;
 		echo $cmd1 . "\n";
 		echo shell_exec($cmd1);
 
