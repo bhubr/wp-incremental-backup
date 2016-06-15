@@ -35,6 +35,10 @@
 		<td><?php echo $mysqldump_bin; ?></td>
 	</tr>
 	<tr>
+		<td>WP size (MB)</td>
+		<td><?php echo $wp_size; ?></td>
+	</tr>
+	<tr>
 		<td>Database size (MB)</td>
 		<td><?php echo $db_size; ?></td>
 	</tr>
