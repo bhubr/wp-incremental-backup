@@ -9,10 +9,12 @@ class T1z_Incremental_Backup_MD5_Walker {
     private $output_dir;
     private $output_list_csv;
     private $archive_list;
-    public function __construct($output_csv, $archive_list, $input_dir) {
+    private $exclude_patterns;
+    public function __construct($output_csv, $archive_list, $input_dir, $excluded) {
         $this->output_list_csv = $output_csv;
         $this->archive_list = $archive_list;
         $this->input_dir = $input_dir;
+        $this->excluded = $excluded;
         $this->output_dir = dirname($output_csv);
         $this->first_run = !file_exists($this->output_list_csv);
         if ($this->first_run) {
@@ -78,6 +80,11 @@ class T1z_Incremental_Backup_MD5_Walker {
 
             // Skip if this is . or .. or output dir 
             if($this->is_special_dir($object) || $this->is_output_dir($object)) {
+                continue;
+            }
+
+            // Skip if excluded pattern
+            if($this->is_excluded($object)) {
                 continue;
             }
 
