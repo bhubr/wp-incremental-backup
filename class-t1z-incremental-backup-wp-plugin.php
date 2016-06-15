@@ -151,6 +151,9 @@ class T1z_Incremental_Backup_WP_Plugin {
         $php_version = $php_out[0];
         exec('ls /usr/local/php5.6/bin/php 2>&1', $php5_out, $ret);
         $php5_path = $php5_out[0];
+        $input_dir = get_home_path();
+        exec("cd $input_dir; du -k 2>&1", $du_out, $ret);
+        $wp_size = (int)$du_out[0] / 1024;
 
         $zip_bin = $this->inc_bak->get_zip_binary();
         $mysqldump_bin = $this->inc_bak->get_mysqldump_binary();
