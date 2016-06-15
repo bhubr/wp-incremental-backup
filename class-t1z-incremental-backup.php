@@ -3,6 +3,7 @@ use Ifsnop\Mysqldump as IMysqldump;
 require 'vendor/autoload.php';
 require 'common/constants.php';
 require 'class-t1z-wpib-exception.php';
+require 'download-script.php';
 define('CLEANUP_AFTER_ZIP', false);
 define('TASKS_DIR', __DIR__ . '/tasks/');
 define('DEFAULT_TIMEOUT', 60);
@@ -18,6 +19,11 @@ class T1z_Incremental_Backup {
      * Walk (input) dir
      */
     private $input_dir;
+
+    /**
+     * Walk (input) dir
+     */
+    private $output_dir;
 
     /**
      * Output set id
@@ -170,6 +176,11 @@ class T1z_Incremental_Backup {
         return count($which_zip_out) ? $which_zip_out[0] : "";
     }
 
+    public function get_bzip2_binary() {
+        exec('which bzip2 2>&1', $which_bzip_out, $ret);
+        return count($which_bzip_out) ? $which_bzip_out[0] : "";
+    }
+
     public function get_mysqldump_binary() {
         exec('which mysqldump 2>&1', $which_msd_out, $ret);
         return count($which_msd_out) ? $which_msd_out[0] : "";
@@ -179,24 +190,31 @@ class T1z_Incremental_Backup {
         return isset($_GET['php_path']) ? $_GET['php_path'] : '';
     }
 
+    private function get_excluded() {
+        return isset($_GET['exclude']) ? $_GET['exclude'] : '';
+    }
+
     private function get_cmd($step) {
         $php_path = $this->get_php_path();
         switch($step) {
             case 'lists':
-                return "{$php_path}php " . TASKS_DIR . "run_walker_del_files.php %s {$this->input_dir} {$this->output_dir}";
+                return "{$php_path}php " . TASKS_DIR . "run_walker_del_files.php %s {$this->input_dir} {$this->output_dir} && echo 'done'";
             case 'md5':
-                return "{$php_path}php " . TASKS_DIR . "run_walker_md5_csv.php %s %s {$this->input_dir}";
+                $exclude = $this->get_excluded();
+                return "{$php_path}php " . TASKS_DIR . "run_walker_md5_csv.php %s %s {$this->input_dir} '$exclude'";
             case 'tar':
                 return "cd {$this->input_dir}; tar c -T {$this->tar_file_src_list} -f %s";
             case 'zip':
+                if(file_exists($this->zip_file)) unlink($this->zip_file);
                 $to_zip = basename($this->sql_file);
-                // if (file_exists($this->tar_file)) {
-                //     $to_zip .= " " . basename($this->tar_file);
-                // }
-                // $zip_bin = $this->get_zip_binary();
-                // if(! empty($zip_bin)) {
-                //     return "cd {$this->output_dir}; zip {$this->zip_file} $to_zip";    
-                // }
+                if (file_exists($this->tar_file)) {
+                    $to_zip .= " " . basename($this->tar_file);
+                }
+                $zip_bin = $this->get_zip_binary();
+                if(! empty($zip_bin)) {
+
+                    return "cd {$this->output_dir}; zip {$this->zip_file} $to_zip";
+                }
                 return "{$php_path}php " . TASKS_DIR . "fallback_zip.php {$this->output_fullpath_prefix}";
             case 'sql':
                 // $mysqldump_bin = $this->get_mysqldump_binary();
@@ -562,13 +580,24 @@ class T1z_Incremental_Backup {
 
     public function download_file($filename) {
         $fullpath = "{$this->output_dir}/$filename";
-        // die($fullpath);
-        header("Content-type: application/zip");
-        header("Content-Disposition: attachment; filename=$filename");
-        header("Content-length: " . filesize($fullpath));
-        header("Pragma: no-cache"); 
-        header("Expires: 0"); 
-        readfile($fullpath);
-        // unlink($fullpath);
+        download($fullpath);
+        // // die($fullpath);
+        // // header("Pragma: public");
+        // header("Pragma: no-cache"); 
+        // header("Expires: 0");
+        // header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
+        // header("Cache-Control: public");
+        // header("Content-Description: File Transfer");
+        // header("Content-type: application/octet-stream");
+        // header("Content-Disposition: attachment; filename=\"".$filename."\"");
+        // header("Content-Transfer-Encoding: binary");
+        // // header("Content-type: application/zip");
+        // // header("Content-Disposition: attachment; filename=$filename");
+        // header("Content-length: " . filesize($fullpath));
+        // // header("Content-length: 10"));
+        // // header("Expires: 0"); 
+        // readfile($fullpath);
+        // // die("nik t mort");
+        // // unlink($fullpath);
     }
 }
