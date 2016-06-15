@@ -40,6 +40,29 @@ trait T1z_Walker_Common {
     }
 
     /**
+     * Check if excluded dir
+     */
+    private function is_excluded($object) {
+        foreach($this->excluded as $pattern) {
+            // If we provide only a wildcard like a*.xz we want it to apply
+            // in any subfolder. In this case we match only the file name
+            // Otherwise if a folder is specified we match the full path
+            $has_path = strpos($pattern, '/');
+            $to_match = $object->getPathname();
+            // $has_path ? $object->getPathname() : $object->getFilename();
+
+            $is_excluded = fnmatch($pattern, $to_match);
+            if ($is_excluded) 
+                echo "excluded: $to_match\n";
+            // else {
+            //     echo "include: $to_match " . $to_match . "\n";
+            // }
+            if (fnmatch($pattern, $to_match)) return true;
+        }
+        return false;
+    }
+
+    /**
      * Check if file is a regular file
      */
     private function is_regular_file($object) {
