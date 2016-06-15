@@ -8,6 +8,8 @@
 * All incorrect headers have been removed and no nonsense code remains in this script. Should work well.
 * The best and most recommended way to download files with PHP is using xsendfile, learn 
 * more here: https://tn123.org/mod_xsendfile/
+*
+* Source: http://phpsnips.com/579/PHP-download-script-for-Large-File-Downloads
 */
 
 /* You may need these ini settings too */
@@ -294,4 +296,4 @@ $mime_types = array("323" => "text/h323",
                     "zip" => "application/zip");
 return $mime_types;                    
 }
-?> 
+?>
