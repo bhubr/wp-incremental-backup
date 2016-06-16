@@ -35,8 +35,8 @@ trait T1z_Walker_Common {
      * Read last file list
      */
     public function read_file_md5_list() {
-        if (! file_exists(T1z_Incremental_Backup_Task::MD5)) return;
-        $this->fh = fopen($this->get_infile(T1z_Incremental_Backup_Task::IN_MD5), "r");
+        if (! file_exists($this->md5_csv)) return;
+        $this->fh = fopen($this->md5_csv, "r");
         do {
             $line_read = fgetcsv($this->fh);
             if (is_null($line_read)) {
@@ -44,7 +44,7 @@ trait T1z_Walker_Common {
             }
             $name = $line_read[0];
             $md5 = $line_read[1];
-            $this->files[$name] = $md5;
+            $this->files_md5[$name] = $md5;
         } while($line_read !== false);
     }
 
@@ -114,13 +114,18 @@ trait T1z_Walker_Common {
     /**
      * Write a file list
      */
-    private function write_file_list($fh, $files) {
+    private function write_file_list($output, $files, $from_root = true) {
+        $fh = fopen($output, 'w+');
+        if (! $fh) {
+            throw new Exception("Could not open list file for writing: $output");
+        }
         $num_files = count($files);
         for($i = 0 ; $i < $num_files ; $i++) {
-            $filename = $this->filename_from_root($files[$i]);
+            $filename = $from_root ? $this->filename_from_root($files[$i]) : $files[$i];
             $not_last = $i < $num_files - 1;
             fwrite($fh, $filename . ($not_last ? "\n" : ""));
         }
+        fclose($fh);
     }
 
 }

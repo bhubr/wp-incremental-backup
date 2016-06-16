@@ -1,6 +1,6 @@
 <?php
-require 'constants.php';
-require_once 'class-t1z-wpib-exception.php';
+require_once 'constants.php';
+// require_once 'class-t1z-wpib-exception.php';
 require_once 'trait-t1z-walker-common.php';
 require_once 'class-t1z-incremental-backup-task-common.php';
 
@@ -11,15 +11,19 @@ class T1z_Incremental_Backup_MD5_Walker extends T1z_Incremental_Backup_Task {
     // private $output_dir;
     // private $output_list_csv;
     // private $archive_list;
-    private $excluded;
+    private $excluded = [];
     private $files_md5 = [];
 
-    public function __construct($input_dir, $output_dir, $datetime, $excluded) {
+    public function __construct($input_dir, $output_dir, $datetime, $extra_opts) {
         parent::__construct(TASK_BUILD_MD5_LIST, $input_dir, $output_dir, $datetime, T1z_Incremental_Backup_Task::PROGRESS_INTERNAL);
-        $this->add_outfile(static::MD5, FILE_MD5_LIST);
-        $this->add_outfile(static::ARC, FILE_ARC_LIST);
-        $this->excluded = $excluded;
-        $this->first_run = !file_exists($this->get_outfile(static::MD5));
+        // $this->add_outfile(static::MD5, FILE_MD5_LIST);
+        $this->add_outfile($this->md5_csv);
+        $this->add_outfile($this->arc_list);
+        if (!empty($extra_opts)) {
+            $this->excluded = explode(',', $extra_opts[0]);
+        }
+
+        $this->first_run = !file_exists($this->md5_csv);
         try {
             $this->set_progress_total($this->count_files());
             if ($this->first_run) $this->files_md5 = [];
@@ -60,7 +64,7 @@ class T1z_Incremental_Backup_MD5_Walker extends T1z_Incremental_Backup_Task {
     /**
      * Recurse wp installation
      */
-    public function prepare_files_archive() {
+    public function run() {
         // echo "prepare start: " . $this->current_time_diff() . "<br>";
         $found_in_dirs = [];
         $files_to_archive = [];
@@ -69,9 +73,9 @@ class T1z_Incremental_Backup_MD5_Walker extends T1z_Incremental_Backup_Task {
         $files_modified = [];
 
         // $this->fh = fopen($this->output_list_csv, "w");
-        $this->fh = fopen($this->get_outfile(static::MD5), "w");
+        $this->fh = fopen($this->md5_csv, "w");
         if($this->fh === false) {
-            throw new T1z_WPIB_Exception("Could not open output CSV file in write mode: " . $this->get_outfile(static::MD5), T1z_WPIB_Exception::FILES);
+            throw new T1z_WPIB_Exception("Could not open output CSV file in write mode: " . $this->md5_csv, T1z_WPIB_Exception::FILES);
         }
 
         $objects = new RecursiveIteratorIterator(
@@ -139,6 +143,8 @@ class T1z_Incremental_Backup_MD5_Walker extends T1z_Incremental_Backup_Task {
 
         $this->write_archive_list($files_to_archive);
 
+        $this->echo_end();
+
         // Log what whas done
         // $this->log([
         //     'new'      => $files_new,
@@ -160,9 +166,7 @@ class T1z_Incremental_Backup_MD5_Walker extends T1z_Incremental_Backup_Task {
         // echo "write start: " . $this->current_time_diff() . "<br>";
         // $files_to_archive = array_keys($this->files);
         // if ($has_deleted) array_unshift($files_to_archive, $this->delete_list);
-        $fh = fopen($this->get_outfile(static::ARC), 'w');
-        $this->write_file_list($fh, $files_to_archive);
-        fclose($fh);
+        $this->write_file_list($this->arc_list, $files_to_archive);
         // if (empty($files_to_archive) && !$has_deleted) {
         //     return;
         // }
