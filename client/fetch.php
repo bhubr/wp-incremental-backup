@@ -4,7 +4,7 @@ define('WPIB_CLIENT_DEBUG_MODE', true);
 define('WPIB_CLIENT_DEBUG_LEN', 400);
 define('BACKUP_ROOT', '/Volumes/Backup/Geek/Sites');
 
-require realpath(__DIR__ . '/../common/constants.php');
+require realpath(__DIR__ . '/../inc/constants.php');
 
 $global_fh = null;
 

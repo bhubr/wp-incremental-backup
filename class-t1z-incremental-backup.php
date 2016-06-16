@@ -1,7 +1,7 @@
 <?php
 use Ifsnop\Mysqldump as IMysqldump;
 require 'vendor/autoload.php';
-require 'common/constants.php';
+require 'inc/constants.php';
 require 'class-t1z-wpib-exception.php';
 require 'download-script.php';
 define('CLEANUP_AFTER_ZIP', false);

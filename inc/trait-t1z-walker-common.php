@@ -1,11 +1,42 @@
 <?php
+require_once 'class-t1z-incremental-backup-task-common.php';
 trait T1z_Walker_Common {
+
+    public function count_files() {
+        $input_dir = $this->get_input_dir();
+        exec("find {$input_dir} | wc -l", $find_wc_in, $ret);
+        if (empty($find_wc_in)) {
+            throw new Exception("[in]find|wc failed: " . $find_wc_in[0]);
+        }
+        $num_in_input = (int)trim($find_wc_in[0]);
+        if ($num_in_input === 0) {
+            throw new Exception("[in]find|wc failed: " . $find_wc_in[0]);
+        }
+
+        $output_dir = $this->get_output_dir();
+        if(fnmatch("$input_dir/*", $output_dir)) {
+            exec("find {$output_dir} | wc -l", $find_wc_out, $ret);
+            if (empty($find_wc_out)) {
+                throw new Exception("[out]find|wc failed");
+            }
+            $num_in_output = (int)trim($find_wc_out[0]);
+            if ($num_in_output === 0) {
+                throw new Exception("[out]find|wc failed: " . $find_wc_out[0]);
+            }
+        }
+        else {
+            $num_in_output = 0;
+        }
+        // $this->add_debug("num in output: $num_in_output");
+        return $num_in_input - $num_in_output;
+    }
 
     /**
      * Read last file list
      */
-    public function read() {
-        $this->fh = fopen($this->output_list_csv, "r");
+    public function read_file_md5_list() {
+        if (! file_exists(T1z_Incremental_Backup_Task::IN_MD5)) return;
+        $this->fh = fopen($this->get_infile(T1z_Incremental_Backup_Task::IN_MD5), "r");
         do {
             $line_read = fgetcsv($this->fh);
             if (is_null($line_read)) {
@@ -36,7 +67,7 @@ trait T1z_Walker_Common {
      * Check if file is the output dir
      */
     private function is_output_dir($object) {
-        return dirname($object->getPathname()) === $this->output_dir;
+        return dirname($object->getPathname()) === $this->get_output_dir();
     }
 
     /**

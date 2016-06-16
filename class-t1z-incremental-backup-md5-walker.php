@@ -73,7 +73,7 @@ class T1z_Incremental_Backup_MD5_Walker {
         foreach($objects as $name => $object) {
 
             // // Skip deleted files list => delete it
-            // if($object->getFilename() === FILES_TO_DELETE) {
+            // if($object->getFilename() === FILE_LIST_TO_DELETE) {
             //     unlink($object->getPathname());
             //     continue;
             // }
