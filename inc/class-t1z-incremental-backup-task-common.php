@@ -15,13 +15,18 @@ class T1z_Incremental_Backup_Task {
     /**
      * input file/md5 list
      */
-    const IN_MD5 = 'IN_MD5';
+    const MD5 = 'MD5';
 
     /**
      * output delete files list
      */
-    const OUT_DEL = 'OUT_DEL';
+    const DEL = 'DEL';
 
+
+    /**
+     * list of files to archive
+     */
+    const ARC = 'ARC';
 
     /**
      * Task name

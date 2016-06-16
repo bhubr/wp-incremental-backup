@@ -12,8 +12,8 @@ class T1z_Incremental_Backup_Deleted_Walker extends T1z_Incremental_Backup_Task 
     public function __construct($input_dir, $output_dir, $datetime) {
         parent::__construct(TASK_LIST_DELETED, $input_dir, $output_dir, $datetime, T1z_Incremental_Backup_Task::PROGRESS_INTERNAL);
 
-        $this->add_infile(static::IN_MD5, FILE_MD5_LIST);
-        $this->add_outfile(static::OUT_DEL, FILE_LIST_TO_DELETE);
+        $this->add_infile(static::MD5, FILE_MD5_LIST);
+        $this->add_outfile(static::DEL, FILE_LIST_TO_DELETE);
         try {
             $this->set_progress_total($this->count_files());
             $this->read_file_md5_list();
@@ -81,7 +81,7 @@ class T1z_Incremental_Backup_Deleted_Walker extends T1z_Incremental_Backup_Task 
      * Write files to delete list
      */
     private function write_delete_list($files_to_delete) {
-        $fh = fopen($this->get_outfile(static::OUT_DEL), 'w');
+        $fh = fopen($this->get_outfile(static::DEL), 'w');
         $this->write_file_list($fh, $files_to_delete);
         fclose($fh);
     }

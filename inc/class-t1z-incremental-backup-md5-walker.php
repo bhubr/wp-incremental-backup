@@ -1,28 +1,37 @@
 <?php
+require 'constants.php';
 require_once 'class-t1z-wpib-exception.php';
 require_once 'trait-t1z-walker-common.php';
+require_once 'class-t1z-incremental-backup-task-common.php';
 
-class T1z_Incremental_Backup_MD5_Walker {
+class T1z_Incremental_Backup_MD5_Walker extends T1z_Incremental_Backup_Task {
     use T1z_Walker_Common;
 
-    private $input_dir;
-    private $output_dir;
-    private $output_list_csv;
-    private $archive_list;
-    private $exclude_patterns;
-    public function __construct($output_csv, $archive_list, $input_dir, $excluded) {
-        $this->output_list_csv = $output_csv;
-        $this->archive_list = $archive_list;
-        $this->input_dir = $input_dir;
+    // private $input_dir;
+    // private $output_dir;
+    // private $output_list_csv;
+    // private $archive_list;
+    private $excluded;
+    private $files_md5 = [];
+
+    public function __construct($input_dir, $output_dir, $datetime, $excluded) {
+        parent::__construct(TASK_BUILD_MD5_LIST, $input_dir, $output_dir, $datetime, T1z_Incremental_Backup_Task::PROGRESS_INTERNAL);
+        $this->add_outfile(static::MD5, FILE_MD5_LIST);
+        $this->add_outfile(static::ARC, FILE_ARC_LIST);
         $this->excluded = $excluded;
-        $this->output_dir = dirname($output_csv);
-        $this->first_run = !file_exists($this->output_list_csv);
-        if ($this->first_run) {
-            $this->files = [];
+        $this->first_run = !file_exists($this->get_outfile(static::MD5));
+        try {
+            $this->set_progress_total($this->count_files());
+            if ($this->first_run) $this->files_md5 = [];
+            else $this->read_file_md5_list();
+        } catch(Exception $e) {
+            $this->echo_status(false);
+            return;
         }
-        else {
-            $this->read();
-        }
+
+        $this->echo_status(true);
+        // die();
+
     }
 
     /**
@@ -59,28 +68,26 @@ class T1z_Incremental_Backup_MD5_Walker {
         $files_new = [];
         $files_modified = [];
 
-        $this->fh = fopen($this->output_list_csv, "w");
+        // $this->fh = fopen($this->output_list_csv, "w");
+        $this->fh = fopen($this->get_outfile(static::MD5), "w");
         if($this->fh === false) {
-            throw new T1z_WPIB_Exception("Could not open output CSV file in write mode: {$this->output_list_csv}", T1z_WPIB_Exception::FILES);
+            throw new T1z_WPIB_Exception("Could not open output CSV file in write mode: " . $this->get_outfile(static::MD5), T1z_WPIB_Exception::FILES);
         }
 
         $objects = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($this->input_dir),
+            new RecursiveDirectoryIterator($this->get_input_dir()),
             RecursiveIteratorIterator::SELF_FIRST
         );
 
         // Iterate directory
         foreach($objects as $name => $object) {
 
-            // // Skip deleted files list => delete it
-            // if($object->getFilename() === FILE_LIST_TO_DELETE) {
-            //     unlink($object->getPathname());
-            //     continue;
-            // }
-
             // Skip if this is . or .. or output dir 
             if($this->is_special_dir($object) || $this->is_output_dir($object)) {
                 continue;
+            }
+            else {
+                $this->increment_progress();
             }
 
             // Skip if excluded pattern
@@ -98,7 +105,7 @@ class T1z_Incremental_Backup_MD5_Walker {
             if(!$this->is_regular_file($object)) continue;
             $md5 = $this->add_file($name);    
             
-            if($this->first_run || !array_key_exists($name, $this->files)) {
+            if($this->first_run || !array_key_exists($name, $this->files_md5)) {
                 // echo "new file: $name<br>";
                 $files_new[] = $name;
                 $files_to_archive[] = $name;
@@ -153,7 +160,7 @@ class T1z_Incremental_Backup_MD5_Walker {
         // echo "write start: " . $this->current_time_diff() . "<br>";
         // $files_to_archive = array_keys($this->files);
         // if ($has_deleted) array_unshift($files_to_archive, $this->delete_list);
-        $fh = fopen($this->archive_list, 'w');
+        $fh = fopen($this->get_outfile(static::ARC), 'w');
         $this->write_file_list($fh, $files_to_archive);
         fclose($fh);
         // if (empty($files_to_archive) && !$has_deleted) {

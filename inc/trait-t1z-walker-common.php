@@ -35,7 +35,7 @@ trait T1z_Walker_Common {
      * Read last file list
      */
     public function read_file_md5_list() {
-        if (! file_exists(T1z_Incremental_Backup_Task::IN_MD5)) return;
+        if (! file_exists(T1z_Incremental_Backup_Task::MD5)) return;
         $this->fh = fopen($this->get_infile(T1z_Incremental_Backup_Task::IN_MD5), "r");
         do {
             $line_read = fgetcsv($this->fh);
@@ -52,7 +52,7 @@ trait T1z_Walker_Common {
      * Get md5 from existing file
      */
     private function get_md5($name) {
-        return $this->files[$name];
+        return $this->files_md5[$name];
     }
 
 
@@ -104,8 +104,9 @@ trait T1z_Walker_Common {
      * Get filename, stripped from root dir (wp installation base dir)
      */
     private function filename_from_root($filename) {
-        $prefix_len = strlen($this->input_dir);
-        $last_char = $this->input_dir[$prefix_len - 1];
+        $input_dir = $this->get_input_dir();
+        $prefix_len = strlen($input_dir);
+        $last_char = $input_dir[$prefix_len - 1];
         $prefix_len += ($last_char === '/') ? 0 : 1;
         return substr($filename, $prefix_len);
     }
