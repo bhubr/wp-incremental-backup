@@ -1,19 +1,15 @@
 <?php
 
 define('WPIB_CLIENT_DEBUG_MODE', true);
-define('WPIB_CLIENT_DEBUG_LEN', 400);
-define('BACKUP_ROOT', '/Volumes/Backup/Geek/Sites');
+define('WPIB_CLIENT_DEBUG_LEN', 15);
+define('BACKUP_ROOT', '/Volumes/Backup 1/Geek/Sites');
 
 require realpath(__DIR__ . '/../inc/constants.php');
 
 $global_fh = null;
 
 
-function curl_write_file($cp, $data) {
-  global $global_fh;
-  $len = fwrite($global_fh, $data);
-  return $len;
-}
+
 
 function progress($resource,$download_size, $downloaded, $upload_size, $uploaded)
 {
@@ -33,19 +29,34 @@ class T1z_WP_Incremental_Backup_Client {
 	private $ch;
 
 	/**
+	 * Second handle for downloading files
+	 */
+	// private $ch_download;
+
+	/**
+	 * Parsed json response
+	 */
+	private $parsed_response;
+
+	/**
 	 * Config data
 	 */
 	private $config;
+
+	private $login_url;
 
 	/**
 	 * Latest ZIP file name
 	 */
 	private $zip_filename;
 
+	private $downloaded_files = [];
+
 	/**
 	 * Constructor: read ini file and setup cURL
 	 */
 	public function __construct() {
+		$this->cookie = tempnam ("/tmp", "CURLCOOKIE");
 		$this->read_config();
 	}
 
@@ -61,34 +72,43 @@ class T1z_WP_Incremental_Backup_Client {
 	 */
 	private function setup_curl() {
 		$ch = curl_init();
-		$cookie = tempnam ("/tmp", "CURLCOOKIE");
-		curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
-		curl_setopt ($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6");
-		curl_setopt ($ch, CURLOPT_TIMEOUT, 600);
-		curl_setopt ($ch, CURLOPT_FOLLOWLOCATION, 1);
-		curl_setopt ($ch, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt ($ch, CURLOPT_COOKIESESSION, true);
-		curl_setopt ($ch, CURLOPT_COOKIE, $cookie);
-		curl_setopt ($ch, CURLOPT_COOKIEJAR, $cookie);
-		// curl_setopt ($ch, CURLOPT_REFERER, $url . "wp-admin/");
-		$this->ch = $ch;
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+		curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6");
+		curl_setopt($ch, CURLOPT_TIMEOUT, 6000);
+		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($ch, CURLOPT_COOKIESESSION, true);
+		curl_setopt($ch, CURLOPT_COOKIE, $this->cookie);
+		curl_setopt($ch, CURLOPT_COOKIEJAR, $this->cookie);
+		curl_setopt($ch, CURLOPT_HEADER, 0);
+		return $ch;
 	}
+
 
 	/**
 	 * Run process
 	 */
 	public function run() {
 		foreach ($this->config as $site => $config) {
-			$this->setup_curl();
+			$this->ch = $this->setup_curl();
+			if (! $this->ch) { die ("cURL init failed for 1st handle!!"); }
+			$this->setup_curl_for_html();
+			// $this->ch_download = $this->setup_curl();
+			// if (! $this->ch_download) { die ("cURL init failed for 1st handle!!"); }
 			printf ("\n\n *******   Begin process for site: %25s   ********\n", $site);
 
 			if (substr($config['url'], -1) !== '/') {
 				$config['url'] .= '/';
 			}
 			// $this->get_login($config);
-			$this->get_login($config);
-			$this->post_login($config);
-			$this->get_admin($config);
+			// foreach (['json' => $this->ch, 'binary' => $this->ch_download] as $type => 	$curl_handle) {
+			// 	
+				
+			// }
+			$this->login_to_wordpress($this->ch, $config);
+
+			$this->setup_curl_for_json();
+			// die('ok login');
 			$this->post_generate_backup($config, $site);
 			// $this->get_fetch_backup_and_concat($config, $site);
 			curl_close($this->ch);
@@ -103,28 +123,39 @@ class T1z_WP_Incremental_Backup_Client {
 		echo substr($str, 0, WPIB_CLIENT_DEBUG_LEN) . "\n\n"; 
 	}
 
+	private function login_to_wordpress($ch, $config) {
+		$this->get_login($ch, $config);
+		$this->post_login($ch, $config);
+	}
+
 	/**
 	 * GET WordPress login page
 	 */
-	private function get_login($config) {
-		$login_url = array_key_exists('login_url', $config) ? $config['login_url'] : 'wp-login.php';
-		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . $login_url);
-		$result = curl_exec ($this->ch);
-		if (! $result) die("[get_login] cURL error: " . curl_error($this->ch) . "\n");
-		if (WPIB_CLIENT_DEBUG_MODE) $this->log('GET login page', $result);
+	private function get_login($ch, $config) {
+		var_dump($config);
+		$this->login_url = $config['url'] . (array_key_exists('login_url', $config) ? $config['login_url'] : 'wp-login.php');
+		printf("* GET login page [url = %s]\n", $this->login_url);
+		curl_setopt ($ch, CURLOPT_URL,  $this->login_url);
+		curl_exec ($ch);
+		// $response = $this->send_request();
+		if (! $this->response) die("[get_login] cURL error: " . curl_error($ch) . "\n");
+		if (WPIB_CLIENT_DEBUG_MODE) $this->log('GET login page', $this->response);
 	}
 
 	/**
 	 * POST request to sign in to WordPress
 	 */
-	private function post_login($config) {
+	private function post_login($ch, $config) {
 		$postdata = "log=". $config['username'] ."&pwd=". urlencode($config['password']) ."&wp-submit=Se+connecter&redirect_to=". $config['url'] ."wp-admin/&testcookie=1";
-		// die($config['password']);
+		printf("\n\n * POST login to %\n", $this->login_url);
 
-		curl_setopt ($this->ch, CURLOPT_POSTFIELDS, $postdata);
-		curl_setopt ($this->ch, CURLOPT_POST, 1);
-		$result = curl_exec ($this->ch);
-		$lines = explode("\n", $result);
+		// $html_response = $this->send_request();
+
+		curl_setopt ($ch, CURLOPT_POSTFIELDS, $postdata);
+		curl_setopt ($ch, CURLOPT_POST, 1);
+		curl_exec ($ch);
+		// $response = $this->send_request();
+		$lines = explode("\n", $this->response);
 		if (count($lines) < 2) {
 			echo "This doesn't seem like an HTML output:\n";
 			var_dump($lines);
@@ -136,8 +167,8 @@ class T1z_WP_Incremental_Backup_Client {
 			var_dump($lines);
 			// exit;
 		}
-		if (! $result) die("[post_login] cURL error: " . curl_error($this->ch) . "\n");
-		if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST login credentials', $result);
+		if (! $this->response) die("[post_login] cURL error: " . curl_error($ch) . "\n");
+		if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST login credentials', $this->response);
 	}
 
 	/**
@@ -147,9 +178,155 @@ class T1z_WP_Incremental_Backup_Client {
 		curl_setopt ($this->ch, CURLOPT_POST, 0);
 		curl_setopt ($this->ch, CURLOPT_POSTFIELDS, "");
 		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . 'wp-admin/');
-		$result = curl_exec ($this->ch);
-		if (! $result) die("[get_login] cURL error: " . curl_error($this->ch) . "\n");
-		if (WPIB_CLIENT_DEBUG_MODE) $this->log('GET login page', $result);
+		// $response = curl_exec ($this->ch);
+		if (! $response) die("[get_login] cURL error: " . curl_error($this->ch) . "\n");
+		if (WPIB_CLIENT_DEBUG_MODE) $this->log('GET login page', $response);
+	}
+
+	private function check_request_response($data) {
+
+		$this->response = $data;
+		// Send request and die on cURL error
+		// $response = curl_exec($this->ch);
+		$http_code = curl_getinfo($this->ch, CURLINFO_HTTP_CODE);
+
+		// Die on HTTP error
+		if ($http_code !== 200) {
+			die(" !!! HTTP error (code = $http_code): $data\n");
+		}
+		// Die on cURL error
+		if (empty($this->response)) {
+			die(" !!! [post_generate_backup] cURL error: " . curl_error($this->ch) . "\n");
+		}
+		
+		// return $this->response;
+	}
+
+	// private function curl_parse_html_response() {
+	// 	$html_response = $this->send_request();
+	// }	
+	private function curl_get_html_response($ch, $data) {
+		
+		$this->check_request_response($data);
+		// die($data);
+	}
+
+	private function curl_parse_json_response($ch, $data) {
+		
+		// $json_response = $this->send_request();
+		$this->check_request_response($data);
+		printf("\ncurl_parse_json_response: %s\n",substr($this->response, 0, 30));
+
+
+		// Parse JSON response
+		$this->parsed_response = json_decode($this->response);
+
+		// Die on empty parsed response
+		if (empty($this->parsed_response)) {
+			echo " !!! [post_generate_backup] JSON parse error. Received payload:\n";
+			die($json_response . "\n");
+		}
+
+		// return $parsed_response;
+	}
+
+	private function setup_curl_for_html() {
+		// curl_setopt($this->ch, CURLOPT_BINARYTRANSFER, 0);
+		curl_setopt($this->ch, CURLOPT_WRITEFUNCTION, [$this, 'curl_get_html_response']);
+	}
+
+	private function setup_curl_for_json() {
+		// curl_setopt($this->ch, CURLOPT_BINARYTRANSFER, 0);
+		curl_setopt($this->ch, CURLOPT_WRITEFUNCTION, [$this, 'curl_parse_json_response']);
+	}
+
+
+	private function setup_curl_for_download() {
+		// curl_setopt($ch, CURLOPT_POST, 0);
+		// curl_setopt($ch, CURLOPT_VERBOSE, 0);
+		// curl_setopt($ch, CURLOPT_POSTFIELDS,"");
+		// curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+		// curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($this->ch, CURLOPT_BINARYTRANSFER, 1);
+		curl_setopt($this->ch, CURLOPT_WRITEFUNCTION, [$this, 'curl_write_file']);
+		// curl_setopt($ch, CURLOPT_PROGRESSFUNCTION, 'progress');
+	}
+
+
+	function curl_write_file($cp, $data) {
+	  global $global_fh;
+	  $len = fwrite($global_fh, $data);
+	  return $len;
+	}
+
+
+	private function loop_downloads($config, $site) {
+
+		// Setup output dir first
+		$dest_dir_prefix = $this->get_destination_dir($site);
+		$dest_dir = $dest_dir_prefix . DIRECTORY_SEPARATOR . "wpib";
+		$wp_expanded_dir = $dest_dir_prefix . DIRECTORY_SEPARATOR . "wordpress";
+
+		if (!is_dir($dest_dir)) mkdir($dest_dir, 0777, true);
+		if (!is_dir($wp_expanded_dir)) mkdir($wp_expanded_dir);
+
+		global $global_fh;
+		$download_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_download";
+		$list_url = $download_url . "&list=1";
+		$check_md5_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_check_md5";
+
+		curl_setopt ($this->ch, CURLOPT_URL, $list_url);
+		curl_exec($this->ch);
+		// $json_response = $this->get_parsed_json_response($this->ch);
+		$json_response = $this->parsed_response;
+		// var_dump($json_response);
+		if (empty($json_response->files)) {
+			echo "*** EMPTY files array\n";
+			return;
+		}
+		$files = $json_response->files;
+		// var_dump($files);die();
+		
+		while (! empty($files)) {
+			$file = basename(array_shift($files));
+			$destination = $dest_dir . DIRECTORY_SEPARATOR . $file;
+			echo "Preparing download for $file => $destination\n";
+			echo "Downloading $destination ... \n";
+			$global_fh = fopen($destination, "w+");
+			if (!$global_fh) die("could not open $destination\n");
+			// $ch = $this->setup_curl();
+
+			// $this->login_to_wordpress($this->ch_download, $config);
+			curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/admin-ajax.php?action=wpib_download&filename=$file");
+
+			$this->setup_curl_for_download();
+			curl_exec($this->ch);
+			if(! file_exists($destination)) {
+				printf("Error while downloading %s\n", $destination);
+				exit(1);
+			}
+			$this->downloaded_files[] = $destination;
+
+			$this->setup_curl_for_json();
+			$md5 = md5_file($destination);
+			curl_setopt ($this->ch, CURLOPT_URL, "$check_md5_url&file=" . urlencode($file) . "&md5=$md5");
+			curl_exec($this->ch);
+
+			if($this->parsed_response->md5_match !== true) {
+				printf("md5 differ: srv=%s, cli=%s", $this->parsed_response->md5_server, $md5);
+				exit(1);
+			}
+
+			fclose($global_fh);
+		}
+
+		
+
+		// Open output file
+
+		// $tmp_filename = 'output-' .time() . '.zip';
+		// $this->zip_filename; //  $this->zip_filename
+
 	}
 
 	/**
@@ -163,9 +340,10 @@ class T1z_WP_Incremental_Backup_Client {
 		// base URL (step param will be appended later)
 		$gen_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_generate";
 		$check_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_check_progress";
+		
 
 		// various steps of process
-		$steps = ['lists', 'md5', 'tar', 'sql']; //, 'zip'];
+		$steps = ['list_deleted', 'list_md5', 'build_archives']; //, 'sql']; //, 'zip'];
 
 		foreach($steps as $step) {
 			$url = "$gen_url&step=$step";
@@ -176,61 +354,44 @@ class T1z_WP_Incremental_Backup_Client {
 			printf(" * Start step %5s", $step);
 			// "$step ==> generate ($gen_url&step=$step)";
 
-			// Send request and die on cURL error
-			$json_response = curl_exec ($this->ch);
-			$http_code = curl_getinfo($this->ch, CURLINFO_HTTP_CODE);
+			// $parsed_response = $this->get_parsed_json_response
+			curl_exec($this->ch);
+			$parsed_response = $this->parsed_response;
 
-			// Die on HTTP error
-			if ($http_code !== 200) {
-				die(" !!! HTTP error: $json_response\n");
-			}
-
-			// Die on cURL error
-			if (empty($json_response)) {
-				die(" !!! [post_generate_backup] cURL error: " . curl_error($this->ch) . "\n");
-			}
-
-// var_dump($json_response);
-			// Parse JSON response
-			$parsed_response = json_decode($json_response);
-
-			// Die on empty parsed response
-			if (empty($parsed_response)) {
-				echo " !!! [post_generate_backup] JSON parse error. Received payload:\n";
-				die($json_response . "\n");
-			}
-
-// var_dump($parsed_response);
 			// Die on process error and give details
-			if (!$parsed_response->success) {
-				echo "\n\n!!! An error occurred during processing ($step - {$parsed_response->step_of_total}). ABORTING !!!\n";
-				// echo $parsed_response->error_details . "\n";
-				var_dump($parsed_response);
-				exit;
-			}
+			// if (!$parsed_response->success) {
+			// 	echo "\n\n!!! An error occurred during processing ($step - {$parsed_response->step_of_total}). ABORTING !!!\n";
+			// 	// echo $parsed_response->error_details . "\n";
+			// 	var_dump($parsed_response);
+			// 	exit;
+			// }
 
 			echo " ($parsed_response->step_of_total)  ==>  .";
 			$num_calls = 1;
 
 
-			// var_dump($parsed_response);
 			// Parse response and die on error
+
 			curl_setopt ($this->ch, CURLOPT_URL, "$check_url&step=$step");
 			while($parsed_response->done === false) {
 				// echo "$step ==> check ($check_url&step=$step)\n";
 				echo ".";
 				$num_calls += 1;
-				
 
-				$json_response = curl_exec ($this->ch);
-				$parsed_response = json_decode($json_response);
-				// var_dump($json_response);
-				// file_put_contents(__DIR__ . '/fetch_dbg.html', $json_response);
-				// var_dump($parsed_response);
-				// sleep(1);
+				if($step === 'build_archives') {
+					$this->loop_downloads($config, $site);
+					
+				}
+				curl_setopt ($this->ch, CURLOPT_URL, "$check_url&step=$step");
+				curl_exec ($this->ch);
+				$parsed_response = $this->parsed_response; //json_decode($json_response);
 			}
 			$padding = 31 - $num_calls;
 			printf("%{$padding}s", "OK *\n");
+
+			if($step === 'build_archives') {
+				$this->loop_downloads($config, $site);
+			}
 
 
 			// if ($parsed_response->success === false) {
@@ -241,9 +402,9 @@ class T1z_WP_Incremental_Backup_Client {
 			// if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST generate backup', $this->zip_filename);
 
 		}
-		$this->zip_filename = basename($parsed_response->files[0]);
+		// $this->zip_filename = basename($parsed_response->files[0]);
 		printf(" * Process done for %25s! *\n", $site);
-		printf(" * Output ZIP filename: %38s *\n", $this->zip_filename);
+		// printf(" * Output ZIP filename: %38s *\n", $this->zip_filename);
 		
 	}
 

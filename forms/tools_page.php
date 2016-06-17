@@ -83,7 +83,15 @@
 <h3>Output dir content</h3>
 <ul>
 <?php foreach($files as $file): ?>
-	<li><a href="admin-ajax.php?action=wpib_download&amp;filename=<?php echo urlencode($file); ?>"><?php echo sprintf('%s (%d)', $file, filesize($this->inc_bak->get_output_dir() . '/' . $file)); ?></a></li>
+	<?php $filepath = $this->inc_bak->get_output_dir() . '/' . $file; ?>
+	<li><a href="admin-ajax.php?action=wpib_download&amp;filename=<?php echo urlencode($file); ?>"><?php echo sprintf('%s (%d)', $file, filesize($filepath)); ?></a>
+	<?php
+	if (fnmatch('*.pid', $filepath)) {
+		$pid = (int)trim(file_get_contents($filepath));
+		echo ' is pid: ' . $this->is_running($pid) ? '<b>running</b>' : 'down';
+	}
+	?>
+	</li>
 <?php endforeach; ?>
 </ul>
 
@@ -91,8 +99,9 @@
 <h3>Process results</h3>
 	<h4>New files</h4>
 	<ul>
+	
 	<?php foreach($result['new'] as $file): ?>
-		<li><?php echo $file; ?></li>
+		<li></li>
 	<?php endforeach; ?>
 	</ul>
 

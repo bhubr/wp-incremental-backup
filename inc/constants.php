@@ -7,4 +7,5 @@ define('TASK_LIST_DELETED', 'list_deleted');
 define('TASK_BUILD_MD5_LIST', 'list_md5');
 define('TASK_BUILD_ARCHIVES', 'build_archives');
 
-define('TAR_MAX_SIZE', 1024 * 1024);
+define('TAR_MAX_SIZE', 250 * 1024 * 1024);
+// define('TAR_MAX_SIZE', 512 * 1024);

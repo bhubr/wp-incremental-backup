@@ -126,7 +126,7 @@ class T1z_Incremental_Backup_Task {
     protected function echo_status($success) {
         echo ':' . ($success ? "SETUP_OK" : "SETUP_FAIL") . "\n"; // . ':' . $this->input_dir . ':' . $this->output_dir;
         echo "% 0\n";
-
+        flush();
     }
 
     protected function set_progress_total($progress_total) {

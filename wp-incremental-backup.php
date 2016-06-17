@@ -5,7 +5,7 @@
  * Description: Create incremental backups of WordPress files&db
  * Author: t1z
  * Author URI: https://github.com/t1z
- * Version: 0.6.9
+ * Version: 0.7.0-beta
  *
  * ChangeLog
  * 0.2.0 First public version
@@ -34,6 +34,7 @@
  * 0.4.5 add a log function
  * 0.5.0 add more elaborate error handling
  * 0.6.0 major rework: handle long processing time to avoid PHP/HTTP timeouts
+ * 0.7.0 yet another major rework: split archiving process for huge WP installs
  *
  * ToDo
  *   - exclude output_dirs

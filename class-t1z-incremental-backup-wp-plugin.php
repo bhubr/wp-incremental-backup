@@ -1,6 +1,6 @@
 <?php
 require 'class-t1z-incremental-backup.php';
-
+require_once 'vendor/autoload.php';
 class T1z_Incremental_Backup_WP_Plugin {
 
     private $activation_id;
@@ -30,6 +30,7 @@ class T1z_Incremental_Backup_WP_Plugin {
         add_action('admin_menu', [$this, 'wpdocs_register_my_custom_submenu_page']);
         add_action('admin_init', [$this, 'get_activation_id_and_setup']);
         add_action('wp_ajax_wpib_download', [$this, 'download_file']);
+        add_action('wp_ajax_wpib_check_md5', [$this, 'check_md5']);
         add_action('wp_ajax_wpib_generate', [$this, 'generate_backup']);
         add_action('wp_ajax_wpib_check_progress', [$this, 'check_progress']);
         register_activation_hook( dirname(__FILE__) . DIRECTORY_SEPARATOR . 'wp-incremental-backup.php', [$this, 'plugin_activation'] );
@@ -170,6 +171,8 @@ class T1z_Incremental_Backup_WP_Plugin {
         $du_total = array_pop($du_out);
         $wp_size = $this->format_du_line_as_mb($du_total);
 
+        // exec("dd if=/dev/zero of={$this->output_dir}/upload_test bs=1m count=1024", $dd_out, $ret);
+
         $zip_bin = $this->inc_bak->get_zip_binary();
         $bzip2_bin = $this->inc_bak->get_bzip2_binary();
         // exec($zip_bin, $zip_out, $ret);
@@ -192,11 +195,45 @@ class T1z_Incremental_Backup_WP_Plugin {
 
     public function download_file() {
         if(! current_user_can('manage_options')) die('0');
-        if (! isset($_GET['filename'])) {
-            $filename = $this->inc_bak->get_latest_zip_filename();
+        // if (! isset($_GET['filename'])) {
+        //     $filename = $this->inc_bak->get_latest_zip_filename();
+        // }
+        $output_dir = $this->inc_bak->get_output_dir();
+        if (isset($_GET['list'])) {
+            
+            $list_downloads = glob($output_dir . "/*.bz2");
+            $this->inc_bak->json_response([
+                'files' => $list_downloads
+            ]);
         }
-        else $filename = $_GET['filename'];
-        $this->inc_bak->download_file($filename);
+        else {
+            $filename = $_GET['filename'];
+            // die(($output_dir . DIRECTORY_SEPARATOR . $filename));
+            $this->inc_bak->download_file($filename);
+        }
         exit;
+    }
+
+    public function check_md5() {
+        $this->inc_bak->check_md5();
+    }
+
+        /**
+     * Check if a background process is running. 
+     * 
+     * @param int $pid the process id to check for
+     * @return boolean $res true if running or else false 
+     */
+    public function is_running($pid) {
+        try {
+            $result = shell_exec(sprintf("ps %d", $pid));
+            echo " $result ";
+            if (count(preg_split("/\n/", $result)) > 2) {
+                return true;
+            }
+        } catch (Exception $e) {
+            
+        }
+        return false;
     }
 }

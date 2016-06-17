@@ -4,6 +4,8 @@ require_once 'constants.php';
 require_once 'trait-t1z-walker-common.php';
 require_once 'class-t1z-incremental-backup-task-common.php';
 
+set_time_limit(0);
+
 class T1z_Incremental_Backup_Archiver extends T1z_Incremental_Backup_Task {
     use T1z_Walker_Common;
 
@@ -76,13 +78,19 @@ class T1z_Incremental_Backup_Archiver extends T1z_Incremental_Backup_Task {
         // var_dump($this->archives);
         foreach($this->archives as $idx => $files) {
             $tarball_path = $this->get_tarball($idx);
+            $tarball_tmp = $tarball_path . '.tmp';
             $this->add_outfile($tarball_path);
             $arclist_path = $this->get_partial_arclist($idx);
             $this->write_file_list($arclist_path, $files, false);
             $archive_size = $this->archive_sizes[$idx];
-            $cmd = "cd {$this->input_dir}; tar cj -T $arclist_path -f $tarball_path";
+            $cmd = "cd {$this->input_dir}; tar cj -T $arclist_path -f $tarball_tmp && mv $tarball_tmp $tarball_path";
             exec($cmd, $tar_out, $ret);
+            // sleep(10);
+            echo "log for $tarball_path\n";
+            var_dump($tar_out);
+            var_dump($ret);
             $this->increment_progress();
+            flush();
             // echo "$tarball_path $arclist_path\n";
         }
         $this->echo_end();
