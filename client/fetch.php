@@ -2,7 +2,7 @@
 
 define('WPIB_CLIENT_DEBUG_MODE', true);
 define('WPIB_CLIENT_DEBUG_LEN', 15);
-define('BACKUP_ROOT', '/Volumes/Backup 1/Geek/Sites');
+define('BACKUP_ROOT', '/Volumes/Backup/Geek/Sites');
 
 require realpath(__DIR__ . '/../inc/constants.php');
 
@@ -44,6 +44,8 @@ class T1z_WP_Incremental_Backup_Client {
 	private $config;
 
 	private $login_url;
+
+	private $num_archives;
 
 	/**
 	 * Latest ZIP file name
@@ -224,7 +226,7 @@ class T1z_WP_Incremental_Backup_Client {
 		// Die on empty parsed response
 		if (empty($this->parsed_response)) {
 			echo " !!! [post_generate_backup] JSON parse error. Received payload:\n";
-			die($json_response . "\n");
+			die('[>' . $this->response . "<]\n");
 		}
 
 		// return $parsed_response;
@@ -344,55 +346,58 @@ class T1z_WP_Incremental_Backup_Client {
 
 		// various steps of process
 		$steps = ['list_deleted', 'list_md5', 'build_archives']; //, 'sql']; //, 'zip'];
+		
 
 		foreach($steps as $step) {
+			$num_substeps = $step === 'build_archives' ? $this->num_archives : 1;
 			$url = "$gen_url&step=$step";
 			if(isset($config['php_path'])) $url .= '&php_path=' . urlencode($config['php_path']);
 			if(isset($config['exclude'])) $url .= '&exclude=' . urlencode($config['exclude']);
 			echo "Send request to: $url\n";
 			curl_setopt ($this->ch, CURLOPT_URL, $url);
 			printf(" * Start step %5s", $step);
-			// "$step ==> generate ($gen_url&step=$step)";
 
-			// $parsed_response = $this->get_parsed_json_response
-			curl_exec($this->ch);
-			$parsed_response = $this->parsed_response;
+			for ($idx_sub = 0 ; $idx_sub < $num_substeps ; $idx_sub++)  {
+				$url_sub = $step === 'build_archives' ? "&arc_idx=$idx_sub" : "";
+				curl_setopt ($this->ch, CURLOPT_URL, $url . $url_sub);
 
-			// Die on process error and give details
-			// if (!$parsed_response->success) {
-			// 	echo "\n\n!!! An error occurred during processing ($step - {$parsed_response->step_of_total}). ABORTING !!!\n";
-			// 	// echo $parsed_response->error_details . "\n";
-			// 	var_dump($parsed_response);
-			// 	exit;
-			// }
+				curl_exec($this->ch);
+				$parsed_response = $this->parsed_response;
 
-			echo " ($parsed_response->step_of_total)  ==>  .";
-			$num_calls = 1;
+				echo " ($parsed_response->step_of_total)  ==>  .";
+				$num_calls = 1;
 
 
-			// Parse response and die on error
+				// Parse response and die on error
 
-			curl_setopt ($this->ch, CURLOPT_URL, "$check_url&step=$step");
-			while($parsed_response->done === false) {
-				// echo "$step ==> check ($check_url&step=$step)\n";
-				echo ".";
-				$num_calls += 1;
+				curl_setopt ($this->ch, CURLOPT_URL, "$check_url&step=$step" . $url_sub);
+
+				while($parsed_response->done === false) {
+					// echo "$step ==> check ($check_url&step=$step)\n";
+					echo ".";
+					$num_calls += 1;
+
+					if($step === 'build_archives') {
+						$this->loop_downloads($config, $site);
+						
+					}
+					curl_setopt ($this->ch, CURLOPT_URL, "$check_url&step=$step");
+					curl_exec ($this->ch);
+					$parsed_response = $this->parsed_response; //json_decode($json_response);
+				}
+				$padding = 31 - $num_calls;
+				printf("%{$padding}s", "OK *\n");
+
+				if($step === 'list_md5') {
+					$this->num_archives = $parsed_response->num_archives;
+					// die("num arc:" . $this->num_archives);
+				}
 
 				if($step === 'build_archives') {
 					$this->loop_downloads($config, $site);
-					
 				}
-				curl_setopt ($this->ch, CURLOPT_URL, "$check_url&step=$step");
-				curl_exec ($this->ch);
-				$parsed_response = $this->parsed_response; //json_decode($json_response);
-			}
-			$padding = 31 - $num_calls;
-			printf("%{$padding}s", "OK *\n");
 
-			if($step === 'build_archives') {
-				$this->loop_downloads($config, $site);
 			}
-
 
 			// if ($parsed_response->success === false) {
 			// 	die("[post_generate_backup] error:\n * type: {$parsed_response->error_type}\n * details: {$parsed_response->error_details}\n");

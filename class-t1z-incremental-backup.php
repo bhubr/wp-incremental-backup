@@ -134,30 +134,7 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
         $this->output_log = $this->output_fullpath_prefix . '_log.csv';
         $this->php_timeout = ini_get('max_execution_time');
         if (empty($this->php_timeout)) $this->php_timeout = DEFAULT_TIMEOUT;
-
-        // $this->md5_csv_file = $this->output_dir . "/list.csv";
-        // $this->tar_file_src_list = $this->output_dir . DIRECTORY_SEPARATOR . 'archive.txt';
-        // $this->deleted_files_list = $this->input_dir . '__deleted_files__.txt'; 
-        // $this->tar_file = $this->output_fullpath_prefix . '.tar';
-        // $this->sql_file = $this->output_fullpath_prefix . '.sql';
-        // $this->zip_file = $this->output_fullpath_prefix . '.zip';
-        // $this->setup_steps();
     }
-
-    // private function setup_steps() {
-    //     $this->output_files = [
-    //         'lists' => $this->deleted_files_list,
-    //         'md5'   => [$this->md5_csv_file, $this->tar_file_src_list],
-    //         'tar'   => $this->tar_file,
-    //         'sql'   => $this->sql_file,
-    //         'zip'   => $this->zip_file
-    //     ];
-    // }
-
-    // private function get_output_files($step) {
-    //     $files = $this->output_files[$step];
-    //     return is_array($files) ? $files : [$files];
-    // }
 
     public function get_params() {
         return [
@@ -168,10 +145,6 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
             'output_file_prefix' => $this->output_fullpath_prefix
         ];
     }
-
-    // public function get_output_dir() {
-    //     return is_dir($this->output_dir) ? $this->output_dir : false;
-    // }
 
     public function get_output_dir_content() {
         $output_dir_content = scandir($this->output_dir);
@@ -211,10 +184,11 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
 
     private function get_cmd($step) {
         $php_path = $this->get_php_path();
-        $task_cmd = "{$php_path}php " . TASKS_DIR . "run_task_generic.php %s {$this->input_dir} {$this->output_dir} {$this->datetime} {$this->file_prefix}";
+        $task_cmd = "{$php_path}php " . TASKS_DIR . "run_task_generic.php %s {$this->input_dir} {$this->output_dir} {$this->datetime}";
         switch($step) {
-            case TASK_LIST_DELETED:
             case TASK_BUILD_ARCHIVES:
+                $task_cmd .= sprintf(" %s %s", $this->file_prefix, $_GET['arc_idx']);
+            case TASK_LIST_DELETED:
                 return sprintf($task_cmd, $step);
             case TASK_BUILD_MD5_LIST:
                 $exclude = $this->get_excluded();
@@ -440,6 +414,7 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
     public function json_response($data) {
         $response_payload = json_encode($data);
         header("Content-type: application/json");
+        header("Content-Length: " . strlen($response_payload));
         die($response_payload);
     }
 
@@ -524,6 +499,10 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
             'kb_written' => $output_dir_size_diff,
             'time_elapsed' => $time_elapsed
         ];
+        if($step === TASK_BUILD_MD5_LIST) {
+            $archive_lists = glob("{$this->output_dir}/archive_*.txt");
+            $status['num_archives'] = count($archive_lists);
+        }
         // var_dump($status);die();
         if ($process_status['task_process_closed']) {
             $status['success'] = $process_status['success'];
@@ -568,6 +547,10 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
             // 'pid'  => ! $done ? (int)$this->pid : null,
             'kb_written' => $output_dir_size_diff
         ];
+        if($current_step === TASK_BUILD_MD5_LIST) {
+            $archive_lists = glob("{$this->output_dir}/archive_*.txt");
+            $status['num_archives'] = count($archive_lists);
+        }
         if ($process_status['task_process_closed']) {
             $status['success'] = $process_status['success'];
         }
@@ -599,25 +582,6 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
     public function download_file($filename) {
         $fullpath = "{$this->output_dir}/$filename";
         download($fullpath);
-        // unlink($fullpath);
-        // // die($fullpath);
-        // // header("Pragma: public");
-        // header("Pragma: no-cache"); 
-        // header("Expires: 0");
-        // header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
-        // header("Cache-Control: public");
-        // header("Content-Description: File Transfer");
-        // header("Content-type: application/octet-stream");
-        // header("Content-Disposition: attachment; filename=\"".$filename."\"");
-        // header("Content-Transfer-Encoding: binary");
-        // // header("Content-type: application/zip");
-        // // header("Content-Disposition: attachment; filename=$filename");
-        // header("Content-length: " . filesize($fullpath));
-        // // header("Content-length: 10"));
-        // // header("Expires: 0"); 
-        // readfile($fullpath);
-        // // die("nik t mort");
-        // // unlink($fullpath);
     }
 
     public function check_md5() {

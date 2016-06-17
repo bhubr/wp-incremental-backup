@@ -84,7 +84,7 @@ trait T1z_Walker_Common {
 
             $is_excluded = fnmatch($pattern, $to_match);
             if ($is_excluded) 
-                echo "excluded: $to_match\n";
+                // echo "excluded: $to_match\n";
             // else {
             //     echo "include: $to_match " . $to_match . "\n";
             // }

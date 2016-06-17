@@ -14,6 +14,11 @@ class T1z_Incremental_Backup_MD5_Walker extends T1z_Incremental_Backup_Task {
     private $excluded = [];
     private $files_md5 = [];
 
+    private $archives = [];
+    private $archive_sizes = [];
+    private $archive_index;
+    private $archive_size;
+
     public function __construct($input_dir, $output_dir, $datetime, $extra_opts) {
         parent::__construct(TASK_BUILD_MD5_LIST, $input_dir, $output_dir, $datetime, T1z_Incremental_Backup_Task::PROGRESS_INTERNAL);
         // $this->add_outfile(static::MD5, FILE_MD5_LIST);
@@ -123,60 +128,65 @@ class T1z_Incremental_Backup_MD5_Walker extends T1z_Incremental_Backup_Task {
             }
 
         }
-
-        // Iterate existing files from previous backup's list
-        // foreach($this->files as $name => $md5) {
-        //     if (!empty($md5) && array_search($name, $found_in_dirs) === false) {
-        //         // echo "<em>deleted</em> file: $name<br>";
-        //         $files_to_delete[] = $name;
-        //     }
-        // }
-        // $deleted_list_file = $this->write_files_to_delete($files_to_delete);
-        // if (!empty($deleted_list_file)) {
-        //     $files_to_archive[] = $deleted_list_file;
-        // }
-        // echo "prepare end: " . $this->current_time_diff() . "<br>";
-
-
-        // $this->write_tar_archive($files_to_archive);
         fclose($this->fh);
 
         $this->write_archive_list($files_to_archive);
+        $this->prepare_file_lists();
 
         $this->echo_end();
-
-        // Log what whas done
-        // $this->log([
-        //     'new'      => $files_new,
-        //     'modified' => array_keys($files_modified),
-        //     'deleted'  => $files_to_delete
-        // ]);
-
-        // return [
-        //     'new'      => $files_new,
-        //     'modified' => $files_modified,
-        //     'deleted'  => $files_to_delete
-        // ];
     }
+
     /**
      * Write archive file list
      */
     private function write_archive_list($files_to_archive) {
-        // $list = $this->archive_list; //"{$this->output_fullpath_prefix}_tar_list.txt";
-        // echo "write start: " . $this->current_time_diff() . "<br>";
-        // $files_to_archive = array_keys($this->files);
-        // if ($has_deleted) array_unshift($files_to_archive, $this->delete_list);
         $this->write_file_list($this->arc_list, $files_to_archive);
-        // if (empty($files_to_archive) && !$has_deleted) {
-        //     return;
-        // }
-        
-        // $fh = fopen($list, 'w');
-        // $files = array_map(function($file) {
-        //     return $this->filename_from_root($file);
-        // }, $files_to_archive);
-        // $file_list = implode("\n", $files);
-        // file_put_contents($list, $file_list);
-        // echo "write end: " . $this->current_time_diff() . "<br>";
+    }
+
+    public function init_archive() {
+        $this->archive_size = 0;
+        $this->archives[] = [];
+        $this->archive_sizes[] = [];
+        $this->archive_index = count($this->archives) - 1;
+        // echo "init arc {$this->archive_index}\n";
+    }
+
+    public function add_archive_file($file) {
+        // echo "{$this->archive_index} add file $file\n";
+        $fullpath = $this->path_from_in($file);
+        $this->archives[$this->archive_index][] = $file;
+        $this->archive_size += filesize($fullpath);
+        $this->archive_sizes[$this->archive_index] = $this->archive_size;
+        return $this->archive_size >= TAR_MAX_SIZE;
+    }
+
+    private function get_partial_arclist($index) {
+        return $this->output_dir . DIRECTORY_SEPARATOR . 'archive_' . $index . '.txt';
+    }
+
+    private function prepare_file_lists() {
+        $files_raw = file($this->arc_list);
+        // var_dump($files_raw);
+        $files = array_map(function($file) {
+            return trim($file);
+        }, $files_raw);
+        $num_files = count($files);
+        // echo "prepare file lists...$num_files total files\n";
+        $this->init_archive();
+        for ($f = 0 ; $f < $num_files ; $f++) {
+            $is_full = $this->add_archive_file($files[$f]);
+            if($is_full) {
+                // printf("Archive %s is full ...\n", $this->archive_index, $this->archive_sizes[$this->archive_index]);
+                $arclist_path = $this->get_partial_arclist($this->archive_index);
+                $this->write_file_list($arclist_path, $this->archives[$this->archive_index], false);
+                // printf("wrote %s with %d files\n", $arclist_path, count($this->archives[$f]));
+                $this->init_archive();
+                // echo " new archive ...\n";
+            }
+        }
+        $arclist_path = $this->get_partial_arclist($this->archive_index);
+        $this->write_file_list($arclist_path, $this->archives[$this->archive_index], false);
+        // $this->set_progress_total(count($this->archives));
+        // $this->echo_status(true);
     }
 }
