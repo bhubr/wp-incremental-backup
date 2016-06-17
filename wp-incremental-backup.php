@@ -35,6 +35,7 @@
  * 0.5.0 add more elaborate error handling
  * 0.6.0 major rework: handle long processing time to avoid PHP/HTTP timeouts
  * 0.7.0 yet another major rework: split archiving process for huge WP installs
+ * 0.8.0 another rework: replace big archiving process with many ones (1 per tarball)
  *
  * ToDo
  *   - exclude output_dirs

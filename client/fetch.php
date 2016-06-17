@@ -276,20 +276,33 @@ class T1z_WP_Incremental_Backup_Client {
 		$download_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_download";
 		$list_url = $download_url . "&list=1";
 		$check_md5_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_check_md5";
+		$gen_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_generate&step=build_archives";
+		if(isset($config['php_path'])) $gen_url .= '&php_path=' . urlencode($config['php_path']);
+		// printf(" * Start step %5s", $step);
+		// for ($idx_sub = 0 ; $idx_sub < $num_substeps ; $idx_sub++)  {
+		$arc_idx = 0;
 
-		curl_setopt ($this->ch, CURLOPT_URL, $list_url);
-		curl_exec($this->ch);
 		// $json_response = $this->get_parsed_json_response($this->ch);
-		$json_response = $this->parsed_response;
-		// var_dump($json_response);
-		if (empty($json_response->files)) {
-			echo "*** EMPTY files array\n";
-			return;
-		}
-		$files = $json_response->files;
-		// var_dump($files);die();
 		
-		while (! empty($files)) {
+		// var_dump($json_response);
+		// if (empty($json_response->files)) {
+		// 	echo "*** EMPTY files array\n";
+		// 	return;
+		// }
+		curl_setopt ($this->ch, CURLOPT_URL, $gen_url . "&arc_idx=$arc_idx");
+		curl_exec($this->ch);
+		
+		// var_dump($files);die();
+		while($arc_idx < $this->num_archives) {
+
+			do {
+				curl_setopt ($this->ch, CURLOPT_URL, $list_url);
+				curl_exec($this->ch);
+				$json_response = $this->parsed_response;
+				$files = $json_response->files;
+				sleep(4);
+			} while (empty($files));
+
 			$file = basename(array_shift($files));
 			$destination = $dest_dir . DIRECTORY_SEPARATOR . $file;
 			echo "Preparing download for $file => $destination\n";
@@ -320,14 +333,11 @@ class T1z_WP_Incremental_Backup_Client {
 			}
 
 			fclose($global_fh);
+
+			printf("%d/%d DONE with file %s\n", $arc_idx, $this->num_archives, $destination);
+			$arc_idx++;
 		}
-
-		
-
-		// Open output file
-
-		// $tmp_filename = 'output-' .time() . '.zip';
-		// $this->zip_filename; //  $this->zip_filename
+	
 
 	}
 
@@ -345,71 +355,63 @@ class T1z_WP_Incremental_Backup_Client {
 		
 
 		// various steps of process
-		$steps = ['list_deleted', 'list_md5', 'build_archives']; //, 'sql']; //, 'zip'];
+		$steps = ['list_deleted', 'list_md5']; //, 'build_archives']; //, 'sql']; //, 'zip'];
 		
 
 		foreach($steps as $step) {
 			$num_substeps = $step === 'build_archives' ? $this->num_archives : 1;
 			$url = "$gen_url&step=$step";
 			if(isset($config['php_path'])) $url .= '&php_path=' . urlencode($config['php_path']);
-			if(isset($config['exclude'])) $url .= '&exclude=' . urlencode($config['exclude']);
+			if(isset($config['exclude']) && $step === 'list_md5') $url .= '&exclude=' . urlencode($config['exclude']);
 			echo "Send request to: $url\n";
 			curl_setopt ($this->ch, CURLOPT_URL, $url);
 			printf(" * Start step %5s", $step);
 
-			for ($idx_sub = 0 ; $idx_sub < $num_substeps ; $idx_sub++)  {
-				$url_sub = $step === 'build_archives' ? "&arc_idx=$idx_sub" : "";
-				curl_setopt ($this->ch, CURLOPT_URL, $url . $url_sub);
+			// for ($idx_sub = 0 ; $idx_sub < $num_substeps ; $idx_sub++)  {
+			// $url_sub = $step === 'build_archives' ? "&arc_idx=$idx_sub" : "";
+			curl_setopt ($this->ch, CURLOPT_URL, $url);
+			curl_exec ($this->ch);
+			
+			$parsed_response = $this->parsed_response;
 
-				curl_exec($this->ch);
-				$parsed_response = $this->parsed_response;
-
-				echo " ($parsed_response->step_of_total)  ==>  .";
-				$num_calls = 1;
+			// echo " ($parsed_response->step_of_total)  ==>  .";
+			$num_calls = 1;
 
 
-				// Parse response and die on error
+			// Parse response and die on error
+			curl_setopt ($this->ch, CURLOPT_URL, "$check_url&step=$step");
+			while($parsed_response->done === false) {
+				// echo "$step ==> check ($check_url&step=$step)\n";
+				echo ".";
+				$num_calls += 1;
 
-				curl_setopt ($this->ch, CURLOPT_URL, "$check_url&step=$step" . $url_sub);
+				// if($step === 'build_archives') {
+				// 	$this->loop_downloads($config, $site);
+					
+				// }
+				curl_setopt ($this->ch, CURLOPT_URL, "$check_url&step=$step");
+				curl_exec ($this->ch);
+				$parsed_response = $this->parsed_response; //json_decode($json_response);
+			}
+			$padding = 31 - $num_calls;
+			printf("%{$padding}s", "OK *\n");
 
-				while($parsed_response->done === false) {
-					// echo "$step ==> check ($check_url&step=$step)\n";
-					echo ".";
-					$num_calls += 1;
-
-					if($step === 'build_archives') {
-						$this->loop_downloads($config, $site);
-						
-					}
-					curl_setopt ($this->ch, CURLOPT_URL, "$check_url&step=$step");
-					curl_exec ($this->ch);
-					$parsed_response = $this->parsed_response; //json_decode($json_response);
-				}
-				$padding = 31 - $num_calls;
-				printf("%{$padding}s", "OK *\n");
-
-				if($step === 'list_md5') {
-					$this->num_archives = $parsed_response->num_archives;
-					// die("num arc:" . $this->num_archives);
-				}
-
-				if($step === 'build_archives') {
-					$this->loop_downloads($config, $site);
-				}
-
+			if($step === 'list_md5') {
+				$this->num_archives = $parsed_response->num_archives;
+				echo "NUM ARCHIVES: {$this->num_archives}\n";
+				// die("num arc:" . $this->num_archives);
 			}
 
-			// if ($parsed_response->success === false) {
-			// 	die("[post_generate_backup] error:\n * type: {$parsed_response->error_type}\n * details: {$parsed_response->error_details}\n");
+			// if($step === 'build_archives') {
+			// 	$this->loop_downloads($config, $site);
 			// }
-			
-
-			// if (WPIB_CLIENT_DEBUG_MODE) $this->log('POST generate backup', $this->zip_filename);
 
 		}
-		// $this->zip_filename = basename($parsed_response->files[0]);
+
+		$step = 'build_archives';
+		// curl_exec($this->ch);
+		$this->loop_downloads($config, $site);
 		printf(" * Process done for %25s! *\n", $site);
-		// printf(" * Output ZIP filename: %38s *\n", $this->zip_filename);
 		
 	}
 

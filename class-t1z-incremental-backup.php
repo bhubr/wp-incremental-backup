@@ -224,8 +224,8 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
     }
 
     private function not_about_to_timeout() {
-        return $this->current_time_diff() < $this->php_timeout / 2;
-        // return $this->current_time_diff() < 4;
+        // return $this->current_time_diff() < $this->php_timeout / 2;
+        return $this->current_time_diff() < 5;
     }
 
     private function check_is_running() {
