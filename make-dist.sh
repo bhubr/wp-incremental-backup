@@ -1,7 +1,7 @@
 #!/bin/sh
 mkdir -p wp-incremental-backup/vendor
 mv wp-incremental-backup.zip wp-incremental-backup.zip.bak
-cp -R class-t1z-* common composer.* download-script.php forms tasks trait-t1z-walker-common.php wp-incremental-backup.php wp-incremental-backup/
+cp -R class-t1z-* composer.* download-script.php forms inc tasks trait-t1z-walker-common.php wp-incremental-backup.php wp-incremental-backup/
 cp -R vendor/autoload.php wp-incremental-backup/vendor/
 cp -R vendor/composer wp-incremental-backup/vendor/
 cp -R vendor/ifsnop wp-incremental-backup/vendor/

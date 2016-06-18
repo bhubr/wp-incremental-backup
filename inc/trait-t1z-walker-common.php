@@ -1,11 +1,42 @@
 <?php
+require_once 'class-t1z-incremental-backup-task-common.php';
 trait T1z_Walker_Common {
+
+    public function count_files() {
+        $input_dir = $this->get_input_dir();
+        exec("find {$input_dir} | wc -l", $find_wc_in, $ret);
+        if (empty($find_wc_in)) {
+            throw new Exception("[in]find|wc failed: " . $find_wc_in[0]);
+        }
+        $num_in_input = (int)trim($find_wc_in[0]);
+        if ($num_in_input === 0) {
+            throw new Exception("[in]find|wc failed: " . $find_wc_in[0]);
+        }
+
+        $output_dir = $this->get_output_dir();
+        if(fnmatch("$input_dir/*", $output_dir)) {
+            exec("find {$output_dir} | wc -l", $find_wc_out, $ret);
+            if (empty($find_wc_out)) {
+                throw new Exception("[out]find|wc failed");
+            }
+            $num_in_output = (int)trim($find_wc_out[0]);
+            if ($num_in_output === 0) {
+                throw new Exception("[out]find|wc failed: " . $find_wc_out[0]);
+            }
+        }
+        else {
+            $num_in_output = 0;
+        }
+        // $this->add_debug("num in output: $num_in_output");
+        return $num_in_input - $num_in_output;
+    }
 
     /**
      * Read last file list
      */
-    public function read() {
-        $this->fh = fopen($this->output_list_csv, "r");
+    public function read_file_md5_list() {
+        if (! file_exists($this->md5_csv)) return;
+        $this->fh = fopen($this->md5_csv, "r");
         do {
             $line_read = fgetcsv($this->fh);
             if (is_null($line_read)) {
@@ -13,7 +44,7 @@ trait T1z_Walker_Common {
             }
             $name = $line_read[0];
             $md5 = $line_read[1];
-            $this->files[$name] = $md5;
+            $this->files_md5[$name] = $md5;
         } while($line_read !== false);
     }
 
@@ -21,7 +52,7 @@ trait T1z_Walker_Common {
      * Get md5 from existing file
      */
     private function get_md5($name) {
-        return $this->files[$name];
+        return $this->files_md5[$name];
     }
 
 
@@ -36,7 +67,7 @@ trait T1z_Walker_Common {
      * Check if file is the output dir
      */
     private function is_output_dir($object) {
-        return dirname($object->getPathname()) === $this->output_dir;
+        return dirname($object->getPathname()) === $this->get_output_dir();
     }
 
     /**
@@ -53,7 +84,7 @@ trait T1z_Walker_Common {
 
             $is_excluded = fnmatch($pattern, $to_match);
             if ($is_excluded) 
-                echo "excluded: $to_match\n";
+                // echo "excluded: $to_match\n";
             // else {
             //     echo "include: $to_match " . $to_match . "\n";
             // }
@@ -73,8 +104,9 @@ trait T1z_Walker_Common {
      * Get filename, stripped from root dir (wp installation base dir)
      */
     private function filename_from_root($filename) {
-        $prefix_len = strlen($this->input_dir);
-        $last_char = $this->input_dir[$prefix_len - 1];
+        $input_dir = $this->get_input_dir();
+        $prefix_len = strlen($input_dir);
+        $last_char = $input_dir[$prefix_len - 1];
         $prefix_len += ($last_char === '/') ? 0 : 1;
         return substr($filename, $prefix_len);
     }
@@ -82,13 +114,18 @@ trait T1z_Walker_Common {
     /**
      * Write a file list
      */
-    private function write_file_list($fh, $files) {
+    private function write_file_list($output, $files, $from_root = true) {
+        $fh = fopen($output, 'w+');
+        if (! $fh) {
+            throw new Exception("Could not open list file for writing: $output");
+        }
         $num_files = count($files);
         for($i = 0 ; $i < $num_files ; $i++) {
-            $filename = $this->filename_from_root($files[$i]);
+            $filename = $from_root ? $this->filename_from_root($files[$i]) : $files[$i];
             $not_last = $i < $num_files - 1;
             fwrite($fh, $filename . ($not_last ? "\n" : ""));
         }
+        fclose($fh);
     }
 
 }
