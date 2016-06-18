@@ -303,6 +303,14 @@ class T1z_WP_Incremental_Backup_Client {
 				sleep(4);
 			} while (empty($files));
 
+			$arc_idx++;
+
+			if ($arc_idx < $this->num_archives) {
+				curl_setopt ($this->ch, CURLOPT_URL, $gen_url . "&arc_idx=$arc_idx");
+				curl_exec($this->ch);
+			}
+
+
 			$file = basename(array_shift($files));
 			$destination = $dest_dir . DIRECTORY_SEPARATOR . $file;
 			echo "Preparing download for $file => $destination\n";
@@ -335,7 +343,6 @@ class T1z_WP_Incremental_Backup_Client {
 			fclose($global_fh);
 
 			printf("%d/%d DONE with file %s\n", $arc_idx, $this->num_archives, $destination);
-			$arc_idx++;
 		}
 	
 
