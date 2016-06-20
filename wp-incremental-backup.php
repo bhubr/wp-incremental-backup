@@ -5,7 +5,7 @@
  * Description: Create incremental backups of WordPress files&db
  * Author: t1z
  * Author URI: https://github.com/t1z
- * Version: 0.8.0-alpha
+ * Version: 0.8.0
  *
  * ChangeLog
  * 0.2.0 First public version
@@ -53,7 +53,7 @@
  */
 require 'vendor/autoload.php';
 require 'class-t1z-incremental-backup-wp-plugin.php';
-if (WP_DEBUG === true) {
+if (preg_match('/http[s]?\:\/\/localhost\/.*/', site_url()) && WP_DEBUG === true) {
     $whoops = new \Whoops\Run;
     $whoops->pushHandler(new \Whoops\Handler\PrettyPageHandler);
     $whoops->register();

@@ -112,7 +112,7 @@ class T1z_WP_Incremental_Backup_Client {
 			$this->setup_curl_for_json();
 			// die('ok login');
 			$this->post_generate_backup($config, $site);
-			// $this->get_fetch_backup_and_concat($config, $site);
+			$this->concat_backups($config, $site);
 			curl_close($this->ch);
 		}
 	}
@@ -362,7 +362,7 @@ class T1z_WP_Incremental_Backup_Client {
 		
 
 		// various steps of process
-		$steps = ['list_deleted', 'list_md5']; //, 'build_archives']; //, 'sql']; //, 'zip'];
+		$steps = ['dump_sql', 'list_deleted', 'list_md5']; //, 'build_archives']; //, 'sql']; //, 'zip'];
 		
 
 		foreach($steps as $step) {
@@ -429,7 +429,7 @@ class T1z_WP_Incremental_Backup_Client {
 	/**
 	 * GET request to fetch backup
 	 */
-	private function get_fetch_backup_and_concat($config, $site) {
+	private function concat_backups($config, $site) {
 		global $global_fh;
 		// Setup output dir first
 		$dest_dir_prefix = $this->get_destination_dir($site);
@@ -439,119 +439,42 @@ class T1z_WP_Incremental_Backup_Client {
 		if (!is_dir($dest_dir)) mkdir($dest_dir, 0777, true);
 		if (!is_dir($wp_expanded_dir)) mkdir($wp_expanded_dir);
 
+		$count = count($this->downloaded_files);
 		// Open output file
-		set_time_limit(0); //prevent timeout
-
-		// $ch2 = curl_init();
-		$tmp_filename = 'output-' .time() . '.zip';
-		$destination = $dest_dir . DIRECTORY_SEPARATOR . $this->zip_filename; //  $this->zip_filename
-		$global_fh = fopen($destination, "w+");
-		if (!$global_fh) die("could not open $destination\n");
-		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/admin-ajax.php?action=wpib_download");
-		// curl_setopt($this->ch, CURLOPT_URL, "http://www.lesvaguabondes.fr/wp-content/uploads/wp-incremental-backup-output/o8mqb5/cie-les-vaguabondes_20160614-225241.zip");
-		// curl_setopt($this->ch, CURLOPT_FILE, $global_fh); //auto write to file
-
-		curl_setopt($this->ch, CURLOPT_TIMEOUT, 5040);
-		curl_setopt($this->ch, CURLOPT_POST, 0);
-		curl_setopt($this->ch, CURLOPT_VERBOSE, 0);
-		curl_setopt($this->ch, CURLOPT_POSTFIELDS,"");
-		curl_setopt($this->ch, CURLOPT_BINARYTRANSFER, 1);
-		// curl_setopt ($this->ch, CURLOPT_HTTPHEADER, array('Expect:'));
-		// curl_setopt($this->ch, CURLOPT_SSL_VERIFYHOST, 1);
-		// curl_setopt($this->ch, CURLOPT_SSL_VERIFYPEER, FALSE); 
-		// curl_setopt($this->ch, CURLOPT_SSLVERSION, 3); 
-		curl_setopt($this->ch, CURLOPT_FOLLOWLOCATION, 1);
-		// curl_setopt($this->ch, CURLOPT_TCP_KEEPALIVE, 1);
-		// curl_setopt($this->ch, CURLOPT_TCP_KEEPIDLE, 2);
-		curl_setopt($this->ch, CURLOPT_HEADER, 0);
-		curl_setopt ($this->ch, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($this->ch, CURLOPT_WRITEFUNCTION, 'curl_write_file');
-		// curl_setopt($this->ch, CURLOPT_PROGRESSFUNCTION, 'progress');
-
-
-		curl_exec($this->ch);
-
-
-		// curl_close($this->ch);
-		fclose($global_fh);
-
-		// $header_size = curl_getinfo($this->ch, CURLINFO_HEADER_SIZE);
-		// $header = substr($response, 0, $header_size);
-		// var_dump($header);
-		// die();
-
-		// echo "open $destination\n";
-		// $fh = fopen($destination, "w+");
-		// if($fh === false) die("could not output file $destination\n");
-
-		// // Setup cURL
-		// curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/admin-ajax.php?action=wpib_download");
-		// curl_setopt ($this->ch, CURLOPT_POST, 0);
-		
-		// curl_setopt ($this->ch, CURLOPT_FILE, $fh);
-		// curl_setopt($this->ch, CURLOPT_BINARYTRANSFER, 1);
-		
-		// // curl_setopt($this->ch, CURLOPT_NOPROGRESS, false); // needed to make progress function work
-		// // curl_setopt($this->ch, CURLOPT_VERBOSE, 1);
-
-
-
-
-		// // ob_start();
-
-		// // echo "<pre>";
-		// // echo "Loading ...";
-
-		// // ob_flush();
-		// // flush();
-		// curl_exec ($this->ch);
-		// curl_close ($this->ch);
-		// fclose($fh);
-
-		if(filesize($destination)<= 1) {
-			echo "An error occurred: could not download $destination\n";
-			var_dump(curl_error($this->ch));
-			die();
+		foreach($this->downloaded_files as $i => $file) {
+			$cmd = "cd $dest_dir ; tar xvf $file";
+			printf("Unpacking %d of %d: %s\n", $i + 1, $count, $cmd);
 		}
-		// return;
-		// ob_flush();
-		// flush();
-		// ob_end_clean();
-
-		// Then, after your curl_exec call:
-
-		// if (! $data) die("[get_fetch_backup_and_concat] cURL error: " . curl_error($this->ch) . "\n");
 
 
+		// $info = pathinfo($destination);
+		// $filename_prefix =  basename($destination,'.'.$info['extension']);
+		// $tar = "$filename_prefix.tar";
+		// $tar_fullpath = $dest_dir . DIRECTORY_SEPARATOR . $tar;
 
-		$info = pathinfo($destination);
-		$filename_prefix =  basename($destination,'.'.$info['extension']);
-		$tar = "$filename_prefix.tar";
-		$tar_fullpath = $dest_dir . DIRECTORY_SEPARATOR . $tar;
+		// $cmd1 = "cd $dest_dir; unzip " . $this->zip_filename;
+		// echo $cmd1 . "\n";
+		// echo shell_exec($cmd1);
 
-		$cmd1 = "cd $dest_dir; unzip " . $this->zip_filename;
-		echo $cmd1 . "\n";
-		echo shell_exec($cmd1);
+		// if(file_exists($tar_fullpath)) {
+		// 	$cmd2 = "cd $wp_expanded_dir; tar xvf $tar_fullpath";
+		// 	echo $cmd2 . "\n";
+		// 	echo shell_exec($cmd2);
 
-		if(file_exists($tar_fullpath)) {
-			$cmd2 = "cd $wp_expanded_dir; tar xvf $tar_fullpath";
-			echo $cmd2 . "\n";
-			echo shell_exec($cmd2);
+		// 	$to_delete_list_file = $wp_expanded_dir . DIRECTORY_SEPARATOR . FILES_TO_DELETE;
+		// 	if(file_exists($to_delete_list_file)) {
+		// 		$files_to_delete = file($to_delete_list_file);
+		// 		$files_to_delete_escaped = array_map(function($file) {
+		// 			return escapeshellarg(trim($file));
+		// 		}, $files_to_delete);
+		// 		$files_to_delete_str = implode(' ', $files_to_delete_escaped);
+		// 		// var_dump($files_to_delete_str);
+		// 		$cmd3 = "cd $wp_expanded_dir; rm $files_to_delete_str";
+		// 		echo shell_exec($cmd3);
 
-			$to_delete_list_file = $wp_expanded_dir . DIRECTORY_SEPARATOR . FILES_TO_DELETE;
-			if(file_exists($to_delete_list_file)) {
-				$files_to_delete = file($to_delete_list_file);
-				$files_to_delete_escaped = array_map(function($file) {
-					return escapeshellarg(trim($file));
-				}, $files_to_delete);
-				$files_to_delete_str = implode(' ', $files_to_delete_escaped);
-				// var_dump($files_to_delete_str);
-				$cmd3 = "cd $wp_expanded_dir; rm $files_to_delete_str";
-				echo shell_exec($cmd3);
-
-				// unlink($to_delete_list_file);
-			}
-		}
+		// 		// unlink($to_delete_list_file);
+		// 	}
+		// }
 	}
 }
 

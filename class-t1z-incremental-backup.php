@@ -90,7 +90,7 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
     /**
      * Process steps
      */
-    private $steps = [TASK_LIST_DELETED, TASK_BUILD_MD5_LIST, TASK_BUILD_ARCHIVES]; //, 'sql', 'zip'];
+    private $steps = [TASK_LIST_DELETED, TASK_BUILD_MD5_LIST, TASK_BUILD_ARCHIVES, TASK_DUMP_SQL]; //, 'sql', 'zip'];
 
     /**
      * Task running
@@ -196,24 +196,28 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
                 return sprintf($task_cmd, $step);
             
                 // return "cd {$this->input_dir}; tar c -T {$this->tar_file_src_list} -f %s";
-            case 'zip':
-                if(file_exists($this->zip_file)) unlink($this->zip_file);
-                $to_zip = basename($this->sql_file);
-                if (file_exists($this->tar_file)) {
-                    $to_zip .= " " . basename($this->tar_file);
-                }
-                $zip_bin = $this->get_zip_binary();
-                if(! empty($zip_bin)) {
+            // case 'zip':
+            //     if(file_exists($this->zip_file)) unlink($this->zip_file);
+            //     $to_zip = basename($this->sql_file);
+            //     if (file_exists($this->tar_file)) {
+            //         $to_zip .= " " . basename($this->tar_file);
+            //     }
+            //     $zip_bin = $this->get_zip_binary();
+            //     if(! empty($zip_bin)) {
 
-                    return "cd {$this->output_dir}; zip {$this->zip_file} $to_zip";
-                }
-                return "{$php_path}php " . TASKS_DIR . "fallback_zip.php {$this->output_fullpath_prefix}";
-            case 'sql':
+            //         return "cd {$this->output_dir}; zip {$this->zip_file} $to_zip";
+            //     }
+            //     return "{$php_path}php " . TASKS_DIR . "fallback_zip.php {$this->output_fullpath_prefix}";
+            case TASK_DUMP_SQL:
                 // $mysqldump_bin = $this->get_mysqldump_binary();
                 // if(! empty($mysqldump_bin)) {
                 //     return sprintf("mysqldump -u%s -p'%s' %s > {$this->sql_file} 2>&1", DB_USER, DB_PASSWORD, DB_NAME);
                 // }
-                return sprintf("{$php_path}php " . TASKS_DIR . "fallback_mysqldump.php {$this->output_fullpath_prefix} %s %s %s '%s'", DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
+                // return sprintf("{$php_path}php " . TASKS_DIR . "fallback_mysqldump.php {$this->output_fullpath_prefix} %s %s %s '%s'", DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
+                $task_cmd .= " %s %s %s %s '%s'";
+                // die($task_cmd);
+                return sprintf($task_cmd, $step, $this->file_prefix, DB_HOST, DB_NAME, DB_USER, DB_PASSWORD);
+                // die($task_cmd);
             default:
                 throw new Exception("Should never get here: " . __FUNCTION__);
         }

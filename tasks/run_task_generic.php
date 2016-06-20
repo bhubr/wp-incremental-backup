@@ -1,6 +1,7 @@
 <?php
 define('PLUGIN_DIR', realpath(__DIR__ . '/..'));
 require PLUGIN_DIR . '/inc/class-t1z-incremental-backup-task-common.php';
+date_default_timezone_set('Europe/Paris');
 
 if (php_sapi_name() !== 'cli') {
 	$protocol = (isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.0');
@@ -12,8 +13,9 @@ if (php_sapi_name() !== 'cli') {
 function my_autoloader($class) {
 	$class_file_mapping = [
 		'T1z_Incremental_Backup_Deleted_Walker' => 'deleted-walker',
-		'T1z_Incremental_Backup_MD5_Walker' => 'md5-walker',
-		'T1z_Incremental_Backup_Archiver' => 'archiver'
+		'T1z_Incremental_Backup_MD5_Walker'     => 'md5-walker',
+		'T1z_Incremental_Backup_Archiver'       => 'archiver',
+		'T1z_Incremental_Backup_SQLDump'        => 'sqldump'
 	];
 	$file = $class_file_mapping[$class];
 	// die($file);

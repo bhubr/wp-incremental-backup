@@ -86,7 +86,8 @@ class T1z_Incremental_Backup_Task {
     protected static $tasks = [
         TASK_LIST_DELETED => 'T1z_Incremental_Backup_Deleted_Walker',
         TASK_BUILD_MD5_LIST => 'T1z_Incremental_Backup_MD5_Walker',
-        TASK_BUILD_ARCHIVES => 'T1z_Incremental_Backup_Archiver'
+        TASK_BUILD_ARCHIVES => 'T1z_Incremental_Backup_Archiver',
+        TASK_DUMP_SQL => 'T1z_Incremental_Backup_SQLDump'
     ];
 
     protected $files = [];
