@@ -589,9 +589,11 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
     }
 
     public function check_md5() {
+        error_log('check_md5');
         $file = $this->output_dir . DIRECTORY_SEPARATOR . $_GET['file'];
         $md5_server = md5_file($file);
         $md5_client = $_GET['md5'];
+        error_log("check_md5 srv: $md5_server, cli: $md5_client, file: $file");
         $md5_match = $md5_server === $md5_client;
         if ($md5_match) unlink($file);
         $this->json_response([

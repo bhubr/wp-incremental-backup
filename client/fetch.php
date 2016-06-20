@@ -11,14 +11,6 @@ $global_fh = null;
 
 
 
-function progress($resource,$download_size, $downloaded, $upload_size, $uploaded)
-{
-    if($download_size > 0)
-         echo $downloaded / $download_size  * 100;
-    // ob_flush();
-    // flush();
-    // sleep(1); // just to see effect
-}
 
 
 class T1z_WP_Incremental_Backup_Client {
@@ -52,12 +44,13 @@ class T1z_WP_Incremental_Backup_Client {
 	 */
 	private $zip_filename;
 
-	private $downloaded_files = [];
+	private $downloaded_files;
 
 	private $download_fh;
 
 	private $dest_dir_prefix;
 	private $dest_dir;
+	private $mode = 'normal';
 
 	/**
 	 * Constructor: read ini file and setup cURL
@@ -89,6 +82,7 @@ class T1z_WP_Incremental_Backup_Client {
 		curl_setopt($ch, CURLOPT_COOKIE, $this->cookie);
 		curl_setopt($ch, CURLOPT_COOKIEJAR, $this->cookie);
 		curl_setopt($ch, CURLOPT_HEADER, 0);
+		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 		return $ch;
 	}
 
@@ -98,6 +92,10 @@ class T1z_WP_Incremental_Backup_Client {
 	 */
 	public function run() {
 		foreach ($this->config as $site => $config) {
+			$this->downloaded_files = [
+				'files' => [],
+				'sql' => []
+			];
 			$this->ch = $this->setup_curl();
 			if (! $this->ch) { die ("cURL init failed for 1st handle!!"); }
 			$this->setup_curl_for_html();
@@ -203,6 +201,9 @@ class T1z_WP_Incremental_Backup_Client {
 		// $response = curl_exec($this->ch);
 		$http_code = curl_getinfo($this->ch, CURLINFO_HTTP_CODE);
 
+echo $this->mode . "\n";
+		if($this->mode === 'download') return;
+
 		// Die on HTTP error
 		if ($http_code !== 200) {
 			die(" !!! HTTP error (code = $http_code): $data\n");
@@ -219,13 +220,13 @@ class T1z_WP_Incremental_Backup_Client {
 	// 	$html_response = $this->send_request();
 	// }	
 	private function curl_get_html_response($ch, $data) {
-		
+		echo "cURL write func: " . __FUNCTION__ . "\n";
 		$this->check_request_response($data);
 		// die($data);
 	}
 
 	private function curl_parse_json_response($ch, $data) {
-		
+		echo "cURL write func: " . __FUNCTION__ . "\n";
 		// $json_response = $this->send_request();
 		$this->check_request_response($data);
 		printf("\ncurl_parse_json_response: %s\n",substr($this->response, 0, 30));
@@ -243,18 +244,43 @@ class T1z_WP_Incremental_Backup_Client {
 		// return $parsed_response;
 	}
 
+	private function progress_nop() {
+
+	}
+
+	private function progress($resource,$download_size, $downloaded, $upload_size, $uploaded)
+	{
+
+		echo __FUNCTION__ . "{$downloaded}/{$download_size}\n";
+	    // if($download_size > 0)
+	    //      echo $downloaded / $download_size  * 100;
+	    // ob_flush();
+	    // flush();
+	    // sleep(1); // just to see effect
+	}
+
+
 	private function setup_curl_for_html() {
 		// curl_setopt($this->ch, CURLOPT_BINARYTRANSFER, 0);
+		// $this->mode = 'normal';
 		curl_setopt($this->ch, CURLOPT_WRITEFUNCTION, [$this, 'curl_get_html_response']);
+		// curl_setopt($this->ch, CURLOPT_PROGRESSFUNCTION, [$this, 'progress_nop']);
 	}
 
 	private function setup_curl_for_json() {
 		// curl_setopt($this->ch, CURLOPT_BINARYTRANSFER, 0);
+		// $this->mode = 'normal';
 		curl_setopt($this->ch, CURLOPT_WRITEFUNCTION, [$this, 'curl_parse_json_response']);
+		// curl_setopt($this->ch, CURLOPT_PROGRESSFUNCTION, [$this, 'progress_nop']);
 	}
 
 
 	private function setup_curl_for_download() {
+		echo "SETUP CURL: " . __FUNCTION__ . "\n";
+		$this->total_written = 0;
+		// die(__FUNCTION__);
+		// $this->mode = 'download';
+		// die($this->mode);
 		// curl_setopt($ch, CURLOPT_POST, 0);
 		// curl_setopt($ch, CURLOPT_VERBOSE, 0);
 		// curl_setopt($ch, CURLOPT_POSTFIELDS,"");
@@ -262,32 +288,53 @@ class T1z_WP_Incremental_Backup_Client {
 		// curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
 		curl_setopt($this->ch, CURLOPT_BINARYTRANSFER, 1);
 		curl_setopt($this->ch, CURLOPT_WRITEFUNCTION, [$this, 'curl_write_file']);
-		// curl_setopt($ch, CURLOPT_PROGRESSFUNCTION, 'progress');
+		// curl_setopt($this->ch, CURLOPT_PROGRESSFUNCTION, [$this, 'progress']);
 	}
 
 
 	function curl_write_file($cp, $data) {
+		global $global_fh;
+		
+		$http_code = curl_getinfo($this->ch, CURLINFO_HTTP_CODE);
+		echo "cURL write func: " . __FUNCTION__ . ", http code: $http_code\n";
 	  // global $global_fh;
-	  $len = fwrite($this->download_fh, $data);
+		var_dump($global_fh);
+		var_dump(substr(base64_encode($data), 0, 50));
+	  $len = fwrite($global_fh, $data);
+	  $this->total_written += $len;
+	  echo "$len bytes written\n";
 	  return $len;
 	}
 
 
 	private function download_and_check($config, $file, $dest) {
+		global $global_fh;
 		$check_md5_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_check_md5";
 		$destination = $this->dest_dir . DIRECTORY_SEPARATOR . $file;
 // die($destination);
 		echo "Preparing download for $file => $destination\n";
 		echo "Downloading $destination ... \n";
-		$this->download_fh = fopen($destination, "w+");
-		if (!$this->download_fh) die("could not open $destination\n");
 		// $ch = $this->setup_curl();
 
 		// $this->login_to_wordpress($this->ch_download, $config);
 		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/admin-ajax.php?action=wpib_download&filename=$file");
-
+echo "setup for download\n";
+		$global_fh = fopen($destination, "w+");
+		if (!$global_fh) die("could not open $destination\n");
+		var_dump($global_fh);
 		$this->setup_curl_for_download();
+		echo "size before: " . filesize($destination) . "\n";
 		curl_exec($this->ch);
+		fclose($global_fh);
+		sleep(1);
+		$stat = stat($destination);
+		echo "total written: {$this->total_written}\n";
+		echo "stat for $destination\n";
+		var_dump($stat);
+		echo "size after: " . filesize($destination) . "\n";
+		// curl_exec($this->ch);
+
+echo "download call done\n";
 		if(! file_exists($destination)) {
 			printf("Error while downloading %s\n", $destination);
 			exit(1);
@@ -297,8 +344,11 @@ class T1z_WP_Incremental_Backup_Client {
 		}
 		$this->downloaded_files[$dest][] = $destination;
 
+echo "setup for json and fire md5 check\n";
 		$this->setup_curl_for_json();
 		$md5 = md5_file($destination);
+		// ech
+echo "$check_md5_url&file=" . urlencode($file) . "&md5=$md5\n";
 		curl_setopt ($this->ch, CURLOPT_URL, "$check_md5_url&file=" . urlencode($file) . "&md5=$md5");
 		curl_exec($this->ch);
 
@@ -307,7 +357,7 @@ class T1z_WP_Incremental_Backup_Client {
 			exit(1);
 		}
 
-		fclose($this->download_fh);
+		
 	}
 
 
@@ -475,13 +525,13 @@ class T1z_WP_Incremental_Backup_Client {
 			echo "$cmd\n";
 			printf("Unpacking %d of %d: %s\n", $i + 1, $count_tarballs, $cmd);
 			exec($cmd, $out, $ret);
-			var_dump($out);
+			// var_dump($out);
 		}
 
-		$sqldump = $this->downloaded_files['sql'];
-		$cmd = "cd {$this->dest_dir} ; bunzip2 $file";
+		$sqldump = $this->downloaded_files['sql'][0];
+		$cmd = "cd {$this->dest_dir} ; bunzip2 $sqldump";
 		exec($cmd, $out, $ret);
-		var_dump($out);
+		// var_dump($out);
 
 
 		// $info = pathinfo($destination);
