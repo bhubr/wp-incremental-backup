@@ -46,22 +46,22 @@ class T1z_Incremental_Backup_SQLDump extends T1z_Incremental_Backup_Task {
     //     $this->archive_sizes[$this->archive_index] = $this->archive_size;
     //     return $this->archive_size >= TAR_MAX_SIZE;
     // }
-    private function get_dump() {
-        return $this->dump_prefix . '_' . $this->datetime . '.sql';
-    }
+    // private function get_dump() {
+    //     return $this->dump_prefix . '_' . $this->datetime . '.sql';
+    // }
 
     public function run() {
 
         // $this->prepare_file_lists();
         // $this->build_archives();
         try {
-        	$dump_file = $this->get_dump();
+        	$dump_file = $this->dump_file;
         	// var_dump($this);die($dump_file);
             $dump = new IMysqldump\Mysqldump("mysql:host={$this->host};dbname={$this->db}", $this->user, $this->pass);
             $dump->start($dump_file);
             $basename = basename($this->dump_file);
             $bzip2_file = $basename . '.bz2';
-            $bzip2 = "cd {$this->output_dir} ; tar cjf $bzip2_file $basename";
+            $bzip2 = "cd {$this->output_dir} ; bzip2 $basename";
             exec($bzip2, $out, $ret);
             $this->add_outfile($bzip2_file);
             // var_dump($out);

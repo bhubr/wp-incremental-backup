@@ -54,10 +54,16 @@ class T1z_WP_Incremental_Backup_Client {
 
 	private $downloaded_files = [];
 
+	private $download_fh;
+
+	private $dest_dir_prefix;
+	private $dest_dir;
+
 	/**
 	 * Constructor: read ini file and setup cURL
 	 */
 	public function __construct() {
+		// if(! is_dir('BACKUP_ROOT')) die(BACKUP_ROOT . " could not be found\n");
 		$this->cookie = tempnam ("/tmp", "CURLCOOKIE");
 		$this->read_config();
 	}
@@ -102,6 +108,11 @@ class T1z_WP_Incremental_Backup_Client {
 			if (substr($config['url'], -1) !== '/') {
 				$config['url'] .= '/';
 			}
+
+			$this->dest_dir_prefix = $this->get_destination_dir($site);
+			$this->dest_dir = $this->dest_dir_prefix . DIRECTORY_SEPARATOR . "wpib";
+			$this->wp_expanded_dir = $this->dest_dir_prefix . DIRECTORY_SEPARATOR . "wordpress";
+
 			// $this->get_login($config);
 			// foreach (['json' => $this->ch, 'binary' => $this->ch_download] as $type => 	$curl_handle) {
 			// 	
@@ -256,26 +267,64 @@ class T1z_WP_Incremental_Backup_Client {
 
 
 	function curl_write_file($cp, $data) {
-	  global $global_fh;
-	  $len = fwrite($global_fh, $data);
+	  // global $global_fh;
+	  $len = fwrite($this->download_fh, $data);
 	  return $len;
+	}
+
+
+	private function download_and_check($config, $file, $dest) {
+		$check_md5_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_check_md5";
+		$destination = $this->dest_dir . DIRECTORY_SEPARATOR . $file;
+// die($destination);
+		echo "Preparing download for $file => $destination\n";
+		echo "Downloading $destination ... \n";
+		$this->download_fh = fopen($destination, "w+");
+		if (!$this->download_fh) die("could not open $destination\n");
+		// $ch = $this->setup_curl();
+
+		// $this->login_to_wordpress($this->ch_download, $config);
+		curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/admin-ajax.php?action=wpib_download&filename=$file");
+
+		$this->setup_curl_for_download();
+		curl_exec($this->ch);
+		if(! file_exists($destination)) {
+			printf("Error while downloading %s\n", $destination);
+			exit(1);
+		}
+		if (!array_key_exists($dest, $this->downloaded_files)) {
+			$this->downloaded_files[$dest] = [];
+		}
+		$this->downloaded_files[$dest][] = $destination;
+
+		$this->setup_curl_for_json();
+		$md5 = md5_file($destination);
+		curl_setopt ($this->ch, CURLOPT_URL, "$check_md5_url&file=" . urlencode($file) . "&md5=$md5");
+		curl_exec($this->ch);
+
+		if($this->parsed_response->md5_match !== true) {
+			printf("md5 differ: srv=%s, cli=%s", $this->parsed_response->md5_server, $md5);
+			exit(1);
+		}
+
+		fclose($this->download_fh);
 	}
 
 
 	private function loop_downloads($config, $site) {
 
 		// Setup output dir first
-		$dest_dir_prefix = $this->get_destination_dir($site);
-		$dest_dir = $dest_dir_prefix . DIRECTORY_SEPARATOR . "wpib";
-		$wp_expanded_dir = $dest_dir_prefix . DIRECTORY_SEPARATOR . "wordpress";
+		// $dest_dir_prefix = $this->get_destination_dir($site);
+		// $dest_dir = $dest_dir_prefix . DIRECTORY_SEPARATOR . "wpib";
+		// $wp_expanded_dir = $dest_dir_prefix . DIRECTORY_SEPARATOR . "wordpress";
 
-		if (!is_dir($dest_dir)) mkdir($dest_dir, 0777, true);
-		if (!is_dir($wp_expanded_dir)) mkdir($wp_expanded_dir);
+		// if (!is_dir($dest_dir)) mkdir($dest_dir, 0777, true);
+		// if (!is_dir($wp_expanded_dir)) mkdir($wp_expanded_dir);
 
-		global $global_fh;
+		// global $global_fh;
 		$download_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_download";
 		$list_url = $download_url . "&list=1";
-		$check_md5_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_check_md5";
+		
 		$gen_url = $config['url'] . "wp-admin/admin-ajax.php?action=wpib_generate&step=build_archives";
 		if(isset($config['php_path'])) $gen_url .= '&php_path=' . urlencode($config['php_path']);
 		// printf(" * Start step %5s", $step);
@@ -292,6 +341,7 @@ class T1z_WP_Incremental_Backup_Client {
 		curl_setopt ($this->ch, CURLOPT_URL, $gen_url . "&arc_idx=$arc_idx");
 		curl_exec($this->ch);
 		
+
 		// var_dump($files);die();
 		while($arc_idx < $this->num_archives) {
 
@@ -300,6 +350,7 @@ class T1z_WP_Incremental_Backup_Client {
 				curl_exec($this->ch);
 				$json_response = $this->parsed_response;
 				$files = $json_response->files;
+				var_dump($files);
 				sleep(4);
 			} while (empty($files));
 
@@ -312,37 +363,11 @@ class T1z_WP_Incremental_Backup_Client {
 
 
 			$file = basename(array_shift($files));
-			$destination = $dest_dir . DIRECTORY_SEPARATOR . $file;
-			echo "Preparing download for $file => $destination\n";
-			echo "Downloading $destination ... \n";
-			$global_fh = fopen($destination, "w+");
-			if (!$global_fh) die("could not open $destination\n");
-			// $ch = $this->setup_curl();
+			echo "Downloading arc idx: $arc_idx $file\n";
+			$this->download_and_check($config, $file, 'files');
 
-			// $this->login_to_wordpress($this->ch_download, $config);
-			curl_setopt ($this->ch, CURLOPT_URL, $config['url'] . "wp-admin/admin-ajax.php?action=wpib_download&filename=$file");
 
-			$this->setup_curl_for_download();
-			curl_exec($this->ch);
-			if(! file_exists($destination)) {
-				printf("Error while downloading %s\n", $destination);
-				exit(1);
-			}
-			$this->downloaded_files[] = $destination;
-
-			$this->setup_curl_for_json();
-			$md5 = md5_file($destination);
-			curl_setopt ($this->ch, CURLOPT_URL, "$check_md5_url&file=" . urlencode($file) . "&md5=$md5");
-			curl_exec($this->ch);
-
-			if($this->parsed_response->md5_match !== true) {
-				printf("md5 differ: srv=%s, cli=%s", $this->parsed_response->md5_server, $md5);
-				exit(1);
-			}
-
-			fclose($global_fh);
-
-			printf("%d/%d DONE with file %s\n", $arc_idx, $this->num_archives, $destination);
+			printf("%d/%d DONE with file %s\n", $arc_idx, $this->num_archives, $file);
 		}
 	
 
@@ -409,6 +434,12 @@ class T1z_WP_Incremental_Backup_Client {
 				// die("num arc:" . $this->num_archives);
 			}
 
+			if($step === 'dump_sql') {
+				$this->download_and_check($config, $parsed_response->files[0], 'sql');
+				// die();
+				// die("num arc:" . $this->num_archives);
+			}
+
 			// if($step === 'build_archives') {
 			// 	$this->loop_downloads($config, $site);
 			// }
@@ -430,21 +461,27 @@ class T1z_WP_Incremental_Backup_Client {
 	 * GET request to fetch backup
 	 */
 	private function concat_backups($config, $site) {
-		global $global_fh;
+		// global $global_fh;
 		// Setup output dir first
-		$dest_dir_prefix = $this->get_destination_dir($site);
-		$dest_dir = $dest_dir_prefix . DIRECTORY_SEPARATOR . "wpib";
-		$wp_expanded_dir = $dest_dir_prefix . DIRECTORY_SEPARATOR . "wordpress";
 
-		if (!is_dir($dest_dir)) mkdir($dest_dir, 0777, true);
-		if (!is_dir($wp_expanded_dir)) mkdir($wp_expanded_dir);
+		if (!is_dir($this->dest_dir)) mkdir($this->dest_dir, 0777, true);
+		if (!is_dir($this->wp_expanded_dir)) mkdir($this->wp_expanded_dir);
 
-		$count = count($this->downloaded_files);
+		$count_tarballs = count($this->downloaded_files['files']);
 		// Open output file
-		foreach($this->downloaded_files as $i => $file) {
-			$cmd = "cd $dest_dir ; tar xvf $file";
-			printf("Unpacking %d of %d: %s\n", $i + 1, $count, $cmd);
+		var_dump($this->downloaded_files);
+		foreach($this->downloaded_files['files'] as $i => $file) {
+			$cmd = "cd {$this->wp_expanded_dir} ; tar xvjf $file";
+			echo "$cmd\n";
+			printf("Unpacking %d of %d: %s\n", $i + 1, $count_tarballs, $cmd);
+			exec($cmd, $out, $ret);
+			var_dump($out);
 		}
+
+		$sqldump = $this->downloaded_files['sql'];
+		$cmd = "cd {$this->dest_dir} ; bunzip2 $file";
+		exec($cmd, $out, $ret);
+		var_dump($out);
 
 
 		// $info = pathinfo($destination);

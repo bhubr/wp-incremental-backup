@@ -90,7 +90,7 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
     /**
      * Process steps
      */
-    private $steps = [TASK_LIST_DELETED, TASK_BUILD_MD5_LIST, TASK_BUILD_ARCHIVES, TASK_DUMP_SQL]; //, 'sql', 'zip'];
+    private $steps = [TASK_DUMP_SQL, TASK_LIST_DELETED, TASK_BUILD_MD5_LIST, TASK_BUILD_ARCHIVES]; //, 'sql', 'zip'];
 
     /**
      * Task running

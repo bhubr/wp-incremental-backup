@@ -168,7 +168,7 @@ class T1z_Incremental_Backup_Task {
     }
 
     protected function parse_output_log($buffer) {
-        // var_dump($buffer);
+        // var_dump($buffer);die();
         $lines = explode("\n", $buffer);
         $status_bits = explode(':', array_shift($lines));
         $last_line = $lines[count($lines) - 1];
