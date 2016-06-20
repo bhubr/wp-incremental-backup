@@ -83,7 +83,7 @@ class T1z_Incremental_Backup_Archiver extends T1z_Incremental_Backup_Task {
             $arclist_path = $this->get_partial_arclist();
             // $this->write_file_list($arclist_path, $files, false);
             // $archive_size = $this->archive_sizes[$idx];
-            $cmd = "cd {$this->input_dir}; tar cj -T $arclist_path -f $tarball_tmp && mv $tarball_tmp $tarball_path";
+            $cmd = "cd {$this->input_dir}; tar cj -T $arclist_path -f $tarball_tmp && mv $tarball_tmp $tarball_path && rm $arclist_path";
             exec($cmd, $tar_out, $ret);
             // sleep(10);
             echo "log for $tarball_path\n";
