@@ -103,7 +103,7 @@ class T1z_Incremental_Backup_Task {
         $this->output_dir = $output_dir;
         $this->datetime = $datetime;
         $this->progress_type = $progress_type;
-        $this->del_list = $this->input_dir . DIRECTORY_SEPARATOR . FILE_LIST_TO_DELETE;
+        $this->del_list = $this->input_dir . DIRECTORY_SEPARATOR . 'wp-content' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . FILE_LIST_TO_DELETE;
         $this->md5_csv = $this->output_dir . DIRECTORY_SEPARATOR . FILE_MD5_LIST;
         $this->arc_list = $this->output_dir . DIRECTORY_SEPARATOR . FILE_ARC_LIST;
         $this->echo_start();
