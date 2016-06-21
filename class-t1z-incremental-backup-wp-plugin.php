@@ -29,6 +29,7 @@ class T1z_Incremental_Backup_WP_Plugin {
     private function setup_wp() {
         add_action('admin_menu', [$this, 'wpdocs_register_my_custom_submenu_page']);
         add_action('admin_init', [$this, 'get_activation_id_and_setup']);
+        add_action('wp_ajax_wpib_cleanup', [$this, 'cleanup']);
         add_action('wp_ajax_wpib_download', [$this, 'download_file']);
         add_action('wp_ajax_wpib_check_md5', [$this, 'check_md5']);
         add_action('wp_ajax_wpib_generate', [$this, 'generate_backup']);
@@ -201,7 +202,7 @@ class T1z_Incremental_Backup_WP_Plugin {
         $output_dir = $this->inc_bak->get_output_dir();
         if (isset($_GET['list'])) {
             
-            $list_downloads = glob($output_dir . "/*.bz2");
+            $list_downloads = glob($output_dir . "/*.tar.bz2");
             $this->inc_bak->json_response([
                 'files' => $list_downloads
             ]);
@@ -216,6 +217,10 @@ class T1z_Incremental_Backup_WP_Plugin {
 
     public function check_md5() {
         $this->inc_bak->check_md5();
+    }
+
+    public function cleanup() {
+        $this->inc_bak->cleanup();
     }
 
         /**

@@ -486,33 +486,29 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
                 'error_details' => $e->getMessage() // . ' ' . $this->get_outfile_contents($step)
             ]);
         }
-        $output_dir_size_diff = $this->get_output_dir_size() - $st_output_dir_sz;
-        // $success = $done ? $this->check_step_success($step) : true;
-        // $process_status = $
-        $time_elapsed = $this->current_time_diff() - $st_timestamp;
+
+        $done = $process_status['task_process_closed'];
         $status = [
-            // 'success'    => $process_status['success'],
-            'datetime'   => $this->datetime,
-            // 'cmd' => $this->cmd_dbg,
-            'files'  => isset($process_status['output_files']) ? $process_status['output_files'] : [],
-            // 'files'      => $this->get_output_files($step),
-            'timeout' => $this->php_timeout,
+            'done'       => $done,
             'step'       => $step,
-            'done'       => $process_status['task_process_closed'],
-            // 'pid'        => ! $done ? (int)$this->pid : null,
-            'kb_written' => $output_dir_size_diff,
-            'time_elapsed' => $time_elapsed
+            'files'      => isset($process_status['output_files']) ? $process_status['output_files'] : [],
+            'timeout'    => $this->php_timeout,
+            'datetime'   => $this->datetime,
+            // 'kb_written' => $output_dir_size_diff
+            // 'time_elapsed' => $time_elapsed
         ];
         if($step === TASK_BUILD_MD5_LIST) {
             $archive_lists = glob("{$this->output_dir}/archive_*.txt");
             $status['num_archives'] = count($archive_lists);
         }
-        // var_dump($status);die();
-        if ($process_status['task_process_closed']) {
+        if ($done) {
             $status['success'] = $process_status['success'];
+            $outfile_contents = $this->get_outfile_contents($step);
+            unlink($this->get_outfile($step));
+            unlink($this->get_pidfile($step));
         }
-        if ($status['done'] && !$process_status['success']) {
-            $status['error_details'] = $this->get_outfile_contents($step);
+        if ($done && !$process_status['success']) {
+            $status['error_details'] = $outfile_contents;
         }
         $step_num = $this->step_num_progress($step);
         $status['step_index'] = $step_num['index'];
@@ -524,8 +520,6 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
         $this->datetime = $this->get_process_datetime();
         $this->setup_process_vars();
         try {
-            $run = $this->get_latest_run();
-            // echo $run;
             $latest_run = $this->get_latest_run();
             $run_info = array_pop($latest_run);
             $info_bits = explode(':', $run_info);
@@ -536,20 +530,16 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
         } catch(Exception $e) {
             // $current = 'done';
         }
-        $output_dir_size_diff = $this->get_output_dir_size() - $kb_before;
-        $process_closed = $this->check_running_task_loop();
+
+        $done = $this->check_running_task_loop();
         $process_status = $this->parse_output_file($this->get_outfile($current_step));
-        $process_status['task_process_closed'] = $process_closed;
-        // $success = $process_closed ? $this->check_step_success($current_step) : true;
         $status = [
-            'files'   => isset($process_status['output_files']) ? $process_status['output_files'] : [],
-            'done'    => $process_status['task_process_closed'],
+            'done'    => $done,
             'step'    => $current_step,
-            // 'files' => $this->get_output_files($current_step),
+            'files'   => isset($process_status['output_files']) ? $process_status['output_files'] : [],
             'timeout' => $this->php_timeout,
-            // 'done' => $done,
-            // 'pid'  => ! $done ? (int)$this->pid : null,
-            'kb_written' => $output_dir_size_diff
+            'datetime'   => $this->datetime,
+            // 'kb_written' => $output_dir_size_diff
         ];
         if($current_step === TASK_BUILD_MD5_LIST) {
             $archive_lists = glob("{$this->output_dir}/archive_*.txt");
@@ -600,5 +590,18 @@ class T1z_Incremental_Backup extends T1z_Incremental_Backup_Task {
             'md5_match' => $md5_match,
             'md5_server' => $md5_server
         ]);
+    }
+
+    public function cleanup() {
+        $filters = ['archive_*.txt', '*_out.txt', '*.pid', '*.tar.bz2', '*.sql.bz2'];
+        $deleted = [];
+        foreach($filters as $filter) {
+            $files = glob("{$this->output_dir}/{$filter}");
+            foreach($files as $file) {
+                $deleted[] = $file;
+                unlink($file);
+            }
+        }
+        $this->json_response(['deleted' => $deleted]);
     }
 }
